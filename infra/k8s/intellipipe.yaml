@@ -1,0 +1,302 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# IntelliPipe Kubernetes Manifests
+# ──────────────────────────────────────────────────────────────────────────────
+# Apply with: kubectl apply -f infra/k8s/ -n intellipipe-prod
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: intellipipe-prod
+  labels:
+    app.kubernetes.io/name: intellipipe
+    environment: production
+
+---
+# ── Secrets (in production, use Vault or AWS Secrets Manager) ─────────────────
+apiVersion: v1
+kind: Secret
+metadata:
+  name: intellipipe-secrets
+  namespace: intellipipe-prod
+type: Opaque
+stringData:
+  anthropic-api-key: "CHANGE_ME"
+  db-password: "CHANGE_ME"
+  api-secret-key: "CHANGE_ME"
+  github-token: "CHANGE_ME"
+  slack-bot-token: "CHANGE_ME"
+  jira-api-token: "CHANGE_ME"
+
+---
+# ── ConfigMap ─────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: intellipipe-config
+  namespace: intellipipe-prod
+data:
+  DB_HOST: "postgres-svc"
+  DB_PORT: "5432"
+  DB_NAME: "intellipipe"
+  DB_USER: "intellipipe"
+  REDIS_HOST: "redis-svc"
+  REDIS_PORT: "6379"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-svc:9092"
+  MLFLOW_TRACKING_URI: "http://mlflow-svc:5000"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+  OTEL_ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+
+---
+# ── API Deployment ────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: intellipipe-api
+  namespace: intellipipe-prod
+  labels:
+    app: intellipipe-api
+    version: "1.0.0"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: intellipipe-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: intellipipe-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: intellipipe-api
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: api
+          image: ghcr.io/intellipipe-org/intellipipe-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8000
+              name: metrics
+          envFrom:
+            - configMapRef:
+                name: intellipipe-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: intellipipe-secrets
+                  key: db-password
+            - name: API_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: intellipipe-secrets
+                  key: api-secret-key
+            - name: LLM_ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: intellipipe-secrets
+                  key: anthropic-api-key
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
+      terminationGracePeriodSeconds: 30
+
+---
+# ── API Service ───────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: intellipipe-api-svc
+  namespace: intellipipe-prod
+spec:
+  selector:
+    app: intellipipe-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+    - name: metrics
+      port: 8000
+      targetPort: 8000
+
+---
+# ── Alert Processor Deployment ────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: intellipipe-alert-processor
+  namespace: intellipipe-prod
+  labels:
+    app: intellipipe-alert-processor
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: intellipipe-alert-processor
+  template:
+    metadata:
+      labels:
+        app: intellipipe-alert-processor
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: processor
+          image: ghcr.io/intellipipe-org/intellipipe-pipeline:latest
+          command: ["python", "-m", "src.agents.alert_processor"]
+          envFrom:
+            - configMapRef:
+                name: intellipipe-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: intellipipe-secrets
+                  key: db-password
+            - name: LLM_ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: intellipipe-secrets
+                  key: anthropic-api-key
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: intellipipe-secrets
+                  key: github-token
+            - name: SLACK_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: intellipipe-secrets
+                  key: slack-bot-token
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          livenessProbe:
+            exec:
+              command: ["python", "-c", "import sys; sys.exit(0)"]
+            initialDelaySeconds: 30
+            periodSeconds: 60
+
+---
+# ── HPA for API ───────────────────────────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: intellipipe-api-hpa
+  namespace: intellipipe-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: intellipipe-api
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+---
+# ── Ingress ───────────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: intellipipe-ingress
+  namespace: intellipipe-prod
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "1000"
+    nginx.ingress.kubernetes.io/rate-limit-burst-multiplier: "2"
+spec:
+  tls:
+    - hosts:
+        - api.intellipipe.io
+      secretName: intellipipe-tls
+  rules:
+    - host: api.intellipipe.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: intellipipe-api-svc
+                port:
+                  number: 80
+
+---
+# ── PodDisruptionBudget ───────────────────────────────────────────────────────
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: intellipipe-api-pdb
+  namespace: intellipipe-prod
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: intellipipe-api
+
+---
+# ── ServiceAccount ────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: intellipipe-api
+  namespace: intellipipe-prod
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT_ID:role/intellipipe-api-role"

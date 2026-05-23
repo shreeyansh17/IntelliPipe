@@ -1,0 +1,25 @@
+name: intellipipe
+version: "1.0.0"
+config-version: 2
+profile: intellipipe
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  intellipipe:
+    staging:
+      +materialized: incremental
+      +schema: staging
+    intermediate:
+      +materialized: incremental
+      +schema: intermediate
+    marts:
+      +materialized: table
+      +schema: marts
+
+vars:
+  intellipipe_start_date: "2024-01-01"
+  sla_freshness_minutes: 30

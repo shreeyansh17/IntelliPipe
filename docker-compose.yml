@@ -1,0 +1,393 @@
+version: "3.9"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# IntelliPipe — Full Local Development Stack
+# ──────────────────────────────────────────────────────────────────────────────
+# Services:
+#   Infrastructure:  postgres, redis, zookeeper, kafka, schema-registry
+#   ML/Tracking:     mlflow
+#   Orchestration:   airflow-webserver, airflow-scheduler
+#   Application:     api, spark-worker, alert-processor
+#   Observability:   prometheus, grafana, jaeger
+#   Dashboard:       dashboard (React)
+# ──────────────────────────────────────────────────────────────────────────────
+
+x-common-env: &common-env
+  PYTHONPATH: /app
+  LOG_LEVEL: INFO
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: intellipipe
+  DB_USER: intellipipe
+  DB_PASSWORD: intellipipe
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  KAFKA_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+  MLFLOW_TRACKING_URI: http://mlflow:5000
+  OTEL_SERVICE_NAME: intellipipe
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+  OTEL_ENVIRONMENT: development
+
+x-api-env: &api-env
+  <<: *common-env
+  API_SECRET_KEY: dev-secret-key-change-in-production
+  API_PORT: "8080"
+  LLM_ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  GITHUB_TOKEN: ${GITHUB_TOKEN:-dummy-token}
+  GITHUB_ORG: ${GITHUB_ORG:-intellipipe-org}
+  GITHUB_REPO: ${GITHUB_REPO:-data-platform}
+  JIRA_API_TOKEN: ${JIRA_API_TOKEN:-dummy-token}
+  SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-dummy-token}
+
+x-airflow-env: &airflow-env
+  <<: *common-env
+  AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://intellipipe:intellipipe@postgres:5432/airflow
+  AIRFLOW__CORE__FERNET_KEY: "46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLt0nfdstY="
+  AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+  AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+  AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL: "30"
+  AIRFLOW_CONN_INTELLIPIPE_DB: postgresql://intellipipe:intellipipe@postgres:5432/intellipipe
+
+networks:
+  intellipipe-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  postgres-data:
+  redis-data:
+  kafka-data:
+  mlflow-artifacts:
+  prometheus-data:
+  grafana-data:
+  airflow-logs:
+
+services:
+
+  # ────────────────────────────────────────
+  # Infrastructure
+  # ────────────────────────────────────────
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: intellipipe-postgres
+    environment:
+      POSTGRES_USER: intellipipe
+      POSTGRES_PASSWORD: intellipipe
+      POSTGRES_MULTIPLE_DATABASES: intellipipe,airflow,mlflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - intellipipe-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intellipipe -d intellipipe"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: intellipipe-redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - intellipipe-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: intellipipe-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: WARN
+    networks:
+      - intellipipe-net
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: intellipipe-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
+      KAFKA_NUM_PARTITIONS: 12
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    ports:
+      - "29092:29092"
+    networks:
+      - intellipipe-net
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "kafka:9092", "--list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    container_name: intellipipe-schema-registry
+    depends_on:
+      - kafka
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    ports:
+      - "8081:8081"
+    networks:
+      - intellipipe-net
+    restart: unless-stopped
+
+  # ────────────────────────────────────────
+  # ML Tracking
+  # ────────────────────────────────────────
+
+  mlflow:
+    image: python:3.11-slim
+    container_name: intellipipe-mlflow
+    command: >
+      bash -c "pip install mlflow psycopg2-binary boto3 -q &&
+               mlflow server
+               --backend-store-uri postgresql://intellipipe:intellipipe@postgres:5432/mlflow
+               --default-artifact-root /mlflow-artifacts
+               --host 0.0.0.0 --port 5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - mlflow-artifacts:/mlflow-artifacts
+    ports:
+      - "5000:5000"
+    networks:
+      - intellipipe-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # ────────────────────────────────────────
+  # Application Services
+  # ────────────────────────────────────────
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    container_name: intellipipe-api
+    environment:
+      <<: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    networks:
+      - intellipipe-net
+    volumes:
+      - ./src:/app/src:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  kafka-producer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: pipeline
+    container_name: intellipipe-producer
+    command: python -m src.pipeline.kafka_producer
+    environment:
+      <<: *common-env
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - intellipipe-net
+    restart: unless-stopped
+
+  alert-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: pipeline
+    container_name: intellipipe-alert-processor
+    command: python -m src.agents.alert_processor
+    environment:
+      <<: *api-env
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - intellipipe-net
+    restart: unless-stopped
+
+  # ────────────────────────────────────────
+  # Airflow
+  # ────────────────────────────────────────
+
+  airflow-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: airflow
+    container_name: intellipipe-airflow-init
+    entrypoint: /bin/bash
+    command: >
+      -c "airflow db upgrade &&
+          airflow users create --username admin --password admin
+          --firstname IntelliPipe --lastname Admin
+          --role Admin --email admin@intellipipe.io || true"
+    environment:
+      <<: *airflow-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - intellipipe-net
+
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: airflow
+    container_name: intellipipe-airflow-web
+    command: airflow webserver --port 8090
+    environment:
+      <<: *airflow-env
+    depends_on:
+      - airflow-init
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags:ro
+      - airflow-logs:/opt/airflow/logs
+    ports:
+      - "8090:8090"
+    networks:
+      - intellipipe-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: airflow
+    container_name: intellipipe-airflow-scheduler
+    command: airflow scheduler
+    environment:
+      <<: *airflow-env
+    depends_on:
+      - airflow-init
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags:ro
+      - airflow-logs:/opt/airflow/logs
+    networks:
+      - intellipipe-net
+    restart: unless-stopped
+
+  # ────────────────────────────────────────
+  # Observability
+  # ────────────────────────────────────────
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: intellipipe-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - intellipipe-net
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: intellipipe-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: intellipipe
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+      GF_SERVER_ROOT_URL: http://localhost:3001
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infra/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3001:3000"
+    networks:
+      - intellipipe-net
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.52
+    container_name: intellipipe-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4317:4317"    # OTLP gRPC
+    networks:
+      - intellipipe-net
+    restart: unless-stopped
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: intellipipe-kafka-ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: intellipipe-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+    ports:
+      - "8082:8080"
+    networks:
+      - intellipipe-net
+    depends_on:
+      - kafka
+    restart: unless-stopped

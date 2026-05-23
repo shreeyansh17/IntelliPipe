@@ -1,0 +1,4 @@
+# Spark streaming
+pyspark>=3.5.0,<4.0.0
+delta-spark>=3.0.0,<4.0.0
+pyarrow>=14.0.0,<15.0.0

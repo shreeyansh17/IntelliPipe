@@ -1,0 +1,30 @@
+intellipipe:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      port: 5432
+      user: intellipipe
+      password: intellipipe
+      dbname: intellipipe
+      schema: staging
+      threads: 4
+    ci:
+      type: postgres
+      host: "{{ env_var('DB_HOST', 'localhost') }}"
+      port: 5432
+      user: "{{ env_var('DB_USER', 'intellipipe') }}"
+      password: "{{ env_var('DB_PASSWORD', 'intellipipe') }}"
+      dbname: "{{ env_var('DB_NAME', 'intellipipe') }}"
+      schema: staging
+      threads: 4
+    prod:
+      type: postgres
+      host: "{{ env_var('DB_HOST') }}"
+      port: 5432
+      user: "{{ env_var('DB_USER') }}"
+      password: "{{ env_var('DB_PASSWORD') }}"
+      dbname: "{{ env_var('DB_NAME') }}"
+      schema: staging
+      threads: 8

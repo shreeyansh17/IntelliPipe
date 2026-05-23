@@ -1,0 +1,165 @@
+version: 2
+
+sources:
+  - name: intellipipe_raw
+    description: "Raw Kafka-landed event tables in the landing zone"
+    database: intellipipe
+    schema: raw
+    loader: kafka_spark_streaming
+    loaded_at_field: _loaded_at
+    freshness:
+      warn_after: {count: 1, period: hour}
+      error_after: {count: 3, period: hour}
+    tables:
+      - name: raw_orders
+        description: "Raw e-commerce order events from the order service Kafka topic"
+        columns:
+          - name: event_id
+            description: "Unique event identifier (UUID)"
+          - name: order_id
+            description: "Business key for the order"
+          - name: tenant_id
+            description: "Multi-tenant identifier"
+
+models:
+  - name: stg_raw_orders
+    description: >
+      Staged and validated order events from the Kafka raw stream.
+      Applies type casting, enum validation, deduplication, and amount reconciliation.
+      All IntelliPipe auto-generated fixes are documented in inline CTEs.
+    config:
+      materialized: incremental
+      incremental_strategy: merge
+      unique_key: ["order_id", "tenant_id"]
+      on_schema_change: append_new_columns
+      tags: ["staging", "orders", "intellipipe"]
+    meta:
+      owner: "data-platform-team"
+      data_classification: "internal"
+      sla_freshness_minutes: 30
+      intellipipe_table_id: "auto-registered"
+    columns:
+      - name: event_id
+        description: "Unique Kafka event ID"
+        data_tests:
+          - not_null
+          - unique
+
+      - name: order_id
+        description: "Order business key — deduplicated, latest event wins"
+        data_tests:
+          - not_null
+          - unique
+
+      - name: tenant_id
+        description: "Multi-tenant partition key"
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ["tenant_alpha", "tenant_beta", "tenant_gamma", "default"]
+
+      - name: customer_id
+        description: "Customer identifier"
+        data_tests:
+          - not_null:
+              severity: warn
+
+      - name: customer_email
+        description: "Normalised customer email (lowercased, trimmed)"
+        data_tests:
+          - not_null:
+              severity: warn
+
+      - name: order_status
+        description: "Validated order status — invalid values nulled out"
+        data_tests:
+          - accepted_values:
+              values: ["pending", "confirmed", "shipped", "delivered", "cancelled", "refunded"]
+              config:
+                severity: warn
+
+      - name: payment_method
+        description: "Validated payment method"
+        data_tests:
+          - accepted_values:
+              values: ["credit_card", "debit_card", "paypal", "crypto", "wire_transfer"]
+              config:
+                severity: warn
+
+      - name: total_amount
+        description: "Reconciled order total (recomputed from components if inconsistent)"
+        data_tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              name: total_amount_non_negative
+
+      - name: subtotal
+        description: "Order subtotal before tax and shipping"
+        data_tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+      - name: currency
+        description: "ISO 4217 currency code"
+        data_tests:
+          - not_null:
+              severity: warn
+          - accepted_values:
+              severity: warn
+              values: ["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "SGD", "INR", "BRL"]
+
+      - name: event_timestamp
+        description: "Event occurrence time — null if older than 7 days (stale)"
+        data_tests:
+          - not_null:
+              severity: warn
+
+      - name: row_quality_score
+        description: "Per-row DQ score 0-100 based on field completeness and validity"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 100"
+
+      - name: has_invalid_status
+        description: "True if order_status was not a valid enum value"
+
+      - name: has_amount_discrepancy
+        description: "True if total_amount deviated >$0.10 from component sum"
+
+    # Custom schema-level tests
+    data_tests:
+      - dbt_utils.expression_is_true:
+          name: avg_row_quality_above_threshold
+          expression: "(select avg(row_quality_score) from {{ model }}) >= 80"
+          config:
+            severity: error
+
+      - dbt_utils.recency:
+          name: freshness_sla_30_minutes
+          datepart: minute
+          field: event_timestamp
+          interval: 30
+          config:
+            severity: error
+
+  - name: int_order_metrics
+    description: "Intermediate order aggregations for mart consumption"
+    config:
+      materialized: incremental
+      tags: ["intermediate", "orders"]
+    columns:
+      - name: order_id
+        data_tests: [not_null, unique]
+      - name: tenant_id
+        data_tests: [not_null]
+
+  - name: mart_order_summary
+    description: "Daily order summary mart — source of truth for BI dashboards"
+    config:
+      materialized: table
+      tags: ["mart", "orders", "bi"]
+    columns:
+      - name: summary_date
+        data_tests: [not_null, unique]

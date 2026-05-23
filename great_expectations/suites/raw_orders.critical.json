@@ -1,0 +1,192 @@
+{
+  "data_asset_type": null,
+  "expectation_suite_name": "raw_orders.critical",
+  "expectations": [
+    {
+      "expectation_type": "expect_table_row_count_to_be_between",
+      "kwargs": {
+        "min_value": 1,
+        "max_value": 10000000
+      },
+      "meta": {
+        "dimension": "completeness",
+        "severity": "critical",
+        "description": "Table must have at least 1 row — zero rows indicates upstream failure"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "column": "event_id" },
+      "meta": { "dimension": "completeness", "severity": "critical" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "column": "order_id" },
+      "meta": { "dimension": "completeness", "severity": "critical" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "column": "tenant_id" },
+      "meta": { "dimension": "completeness", "severity": "critical" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "total_amount",
+        "mostly": 0.99
+      },
+      "meta": { "dimension": "completeness", "severity": "high" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "customer_email",
+        "mostly": 0.90
+      },
+      "meta": {
+        "dimension": "completeness",
+        "severity": "medium",
+        "description": "Allow up to 10% null emails for guest checkouts"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_unique",
+      "kwargs": { "column": "event_id" },
+      "meta": { "dimension": "uniqueness", "severity": "critical" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "order_status",
+        "value_set": ["pending", "confirmed", "shipped", "delivered", "cancelled", "refunded"],
+        "mostly": 0.99
+      },
+      "meta": { "dimension": "validity", "severity": "high" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "payment_method",
+        "value_set": ["credit_card", "debit_card", "paypal", "crypto", "wire_transfer"],
+        "mostly": 0.99
+      },
+      "meta": { "dimension": "validity", "severity": "high" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "total_amount",
+        "min_value": 0,
+        "max_value": 100000,
+        "mostly": 0.99
+      },
+      "meta": {
+        "dimension": "validity",
+        "severity": "high",
+        "description": "Orders above $100k flagged as outliers — statistical anomaly detector handles extreme cases"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "total_amount",
+        "min_value": 0,
+        "max_value": null,
+        "mostly": 1.0
+      },
+      "meta": { "dimension": "validity", "severity": "critical", "description": "No negative order totals" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "customer_email",
+        "regex": "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$",
+        "mostly": 0.95
+      },
+      "meta": { "dimension": "validity", "severity": "medium" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "currency",
+        "value_set": ["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "SGD", "INR", "BRL"],
+        "mostly": 0.99
+      },
+      "meta": { "dimension": "validity", "severity": "medium" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "event_id",
+        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "mostly": 0.99
+      },
+      "meta": { "dimension": "validity", "severity": "medium", "description": "Validate UUID format" }
+    },
+    {
+      "expectation_type": "expect_column_pair_values_to_be_in_set",
+      "kwargs": {
+        "column_A": "subtotal",
+        "column_B": "total_amount",
+        "value_pairs_set": null
+      },
+      "meta": {
+        "dimension": "consistency",
+        "severity": "medium",
+        "description": "subtotal must be <= total_amount"
+      }
+    },
+    {
+      "expectation_type": "expect_table_columns_to_match_ordered_list",
+      "kwargs": {
+        "column_list": [
+          "event_id", "event_type", "tenant_id", "order_id", "customer_id",
+          "customer_email", "order_status", "payment_method", "items",
+          "subtotal", "tax_amount", "shipping_amount", "total_amount",
+          "currency", "shipping_country", "shipping_city", "created_at",
+          "event_timestamp", "schema_version", "source_system", "partition_date"
+        ]
+      },
+      "meta": {
+        "dimension": "schema_conformance",
+        "severity": "critical",
+        "description": "Schema drift detector — column order must match v1 contract"
+      }
+    },
+    {
+      "expectation_type": "expect_column_proportion_of_unique_values_to_be_between",
+      "kwargs": {
+        "column": "order_id",
+        "min_value": 0.85
+      },
+      "meta": {
+        "dimension": "uniqueness",
+        "severity": "high",
+        "description": "At least 85% unique order IDs — duplicate detection"
+      }
+    },
+    {
+      "expectation_type": "expect_column_mean_to_be_between",
+      "kwargs": {
+        "column": "total_amount",
+        "min_value": 10,
+        "max_value": 5000
+      },
+      "meta": {
+        "dimension": "distribution",
+        "severity": "medium",
+        "description": "Mean order value sanity check — detects price injection attacks or extreme outliers"
+      }
+    }
+  ],
+  "meta": {
+    "great_expectations_version": "0.18.0",
+    "suite_version": "1.2.0",
+    "created_by": "IntelliPipe Data Quality Engine",
+    "last_updated": "2024-01-15",
+    "table": "raw_orders",
+    "sla_freshness_minutes": 30,
+    "alert_on_failure": true,
+    "auto_remediate": true
+  }
+}
