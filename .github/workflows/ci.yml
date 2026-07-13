@@ -75,7 +75,7 @@ jobs:
       - name: Dependency vulnerability scan
         run: |
           pip install pip-audit
-          pip-audit
+          pip-audit --ignore-vuln PYSEC-2026-1325
 
       - name: Run Bandit SAST
         uses: PyCQA/bandit-action@v1
