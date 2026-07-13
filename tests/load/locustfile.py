@@ -26,7 +26,6 @@ from typing import Optional
 
 from locust import HttpUser, between, task
 
-
 ADMIN_TOKEN: Optional[str] = None  # Populated in on_start
 
 
@@ -43,7 +42,11 @@ class IntelliPipeDashboardUser(HttpUser):
         """Authenticate and cache JWT token."""
         resp = self.client.post(
             "/api/v1/auth/token",
-            json={"username": "admin", "password": "intellipipe-admin", "tenant_id": "default"},
+            json={
+                "username": "admin",
+                "password": "intellipipe-admin",
+                "tenant_id": "default",
+            },
         )
         if resp.status_code == 200:
             self.token = resp.json()["access_token"]
@@ -96,9 +99,15 @@ class IntelliPipeIncidentUser(HttpUser):
     def on_start(self) -> None:
         resp = self.client.post(
             "/api/v1/auth/token",
-            json={"username": "admin", "password": "intellipipe-admin", "tenant_id": "default"},
+            json={
+                "username": "admin",
+                "password": "intellipipe-admin",
+                "tenant_id": "default",
+            },
         )
-        self.token = resp.json().get("access_token", "") if resp.status_code == 200 else ""
+        self.token = (
+            resp.json().get("access_token", "") if resp.status_code == 200 else ""
+        )
         self.headers = {"Authorization": f"Bearer {self.token}"}
 
     @task(5)
@@ -130,6 +139,7 @@ class IntelliPipeIncidentUser(HttpUser):
     @task(1)
     def get_incident_detail(self) -> None:
         import uuid
+
         fake_id = str(uuid.uuid4())
         with self.client.get(
             f"/api/v1/incidents/{fake_id}",
@@ -163,9 +173,15 @@ class IntelliPipeRAGUser(HttpUser):
     def on_start(self) -> None:
         resp = self.client.post(
             "/api/v1/auth/token",
-            json={"username": "admin", "password": "intellipipe-admin", "tenant_id": "default"},
+            json={
+                "username": "admin",
+                "password": "intellipipe-admin",
+                "tenant_id": "default",
+            },
         )
-        self.token = resp.json().get("access_token", "") if resp.status_code == 200 else ""
+        self.token = (
+            resp.json().get("access_token", "") if resp.status_code == 200 else ""
+        )
         self.headers = {
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
@@ -206,9 +222,15 @@ class IntelliPipeAdminUser(HttpUser):
     def on_start(self) -> None:
         resp = self.client.post(
             "/api/v1/auth/token",
-            json={"username": "admin", "password": "intellipipe-admin", "tenant_id": "default"},
+            json={
+                "username": "admin",
+                "password": "intellipipe-admin",
+                "tenant_id": "default",
+            },
         )
-        self.token = resp.json().get("access_token", "") if resp.status_code == 200 else ""
+        self.token = (
+            resp.json().get("access_token", "") if resp.status_code == 200 else ""
+        )
         self.headers = {"Authorization": f"Bearer {self.token}"}
 
     @task(2)

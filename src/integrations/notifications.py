@@ -54,9 +54,7 @@ class SlackIncidentNotifier:
 
     def __init__(self) -> None:
         self._cfg = settings.slack
-        self._client = AsyncWebClient(
-            token=self._cfg.bot_token.get_secret_value()
-        )
+        self._client = AsyncWebClient(token=self._cfg.bot_token.get_secret_value())
 
     async def post_incident_alert(
         self,
@@ -95,7 +93,9 @@ class SlackIncidentNotifier:
                 ],
             )
             ts = response.get("ts", "")
-            logger.info("Slack alert posted", channel=channel, ts=ts, incident_id=incident_id)
+            logger.info(
+                "Slack alert posted", channel=channel, ts=ts, incident_id=incident_id
+            )
             return {"ts": ts, "channel": channel}
 
         except SlackApiError as e:
@@ -151,10 +151,22 @@ class SlackIncidentNotifier:
                 "fields": [
                     {"type": "mrkdwn", "text": f"*Incident ID*\n`{short_id}`"},
                     {"type": "mrkdwn", "text": f"*Severity*\n`{severity.upper()}`"},
-                    {"type": "mrkdwn", "text": f"*Alert Type*\n`{alert.get('alert_type', 'unknown')}`"},
-                    {"type": "mrkdwn", "text": f"*Table*\n`{alert.get('table_name', 'unknown')}`"},
-                    {"type": "mrkdwn", "text": f"*Detected*\n`{alert.get('detected_at', 'now')}`"},
-                    {"type": "mrkdwn", "text": f"*Tenant*\n`{alert.get('tenant_id', 'default')}`"},
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Alert Type*\n`{alert.get('alert_type', 'unknown')}`",
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Table*\n`{alert.get('table_name', 'unknown')}`",
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Detected*\n`{alert.get('detected_at', 'now')}`",
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Tenant*\n`{alert.get('tenant_id', 'default')}`",
+                    },
                 ],
             },
             {"type": "divider"},
@@ -184,45 +196,53 @@ class SlackIncidentNotifier:
         action_elements: List[Dict[str, Any]] = []
 
         if pr_url:
-            action_elements.append({
-                "type": "button",
-                "text": {"type": "plain_text", "text": ":github: View Fix PR"},
-                "url": pr_url,
-                "style": "primary",
-            })
+            action_elements.append(
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": ":github: View Fix PR"},
+                    "url": pr_url,
+                    "style": "primary",
+                }
+            )
 
         if jira_key:
             jira_url = f"{settings.jira.url}/browse/{jira_key}"
-            action_elements.append({
-                "type": "button",
-                "text": {"type": "plain_text", "text": ":jira: Jira Ticket"},
-                "url": str(jira_url),
-            })
+            action_elements.append(
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": ":jira: Jira Ticket"},
+                    "url": str(jira_url),
+                }
+            )
 
         # Dashboard deep link (placeholder)
-        action_elements.append({
-            "type": "button",
-            "text": {"type": "plain_text", "text": ":bar_chart: Dashboard"},
-            "url": f"http://localhost:3000/incidents/{incident_id}",
-        })
+        action_elements.append(
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": ":bar_chart: Dashboard"},
+                "url": f"http://localhost:3000/incidents/{incident_id}",
+            }
+        )
 
         if action_elements:
             blocks.append({"type": "actions", "elements": action_elements})
 
         blocks.append({"type": "divider"})
-        blocks.append({
-            "type": "context",
-            "elements": [
-                {
-                    "type": "mrkdwn",
-                    "text": (
-                        f"_IntelliPipe Autonomous Data Quality Platform • "
-                        f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} • "
-                        f"Incident `{short_id}`_"
-                    ),
-                }
-            ],
-        })
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": (
+                            f"_IntelliPipe Autonomous Data Quality Platform • "
+                            f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} • "
+                            f"Incident `{short_id}`_"
+                        ),
+                    }
+                ],
+            }
+        )
 
         return blocks
 
@@ -305,7 +325,9 @@ class JiraTicketClient:
         }
 
         try:
-            resp = await self._client.post("/rest/api/3/issue", content=json.dumps(payload))
+            resp = await self._client.post(
+                "/rest/api/3/issue", content=json.dumps(payload)
+            )
             resp.raise_for_status()
             data = resp.json()
             key = data["key"]
@@ -320,7 +342,11 @@ class JiraTicketClient:
             return {"key": key, "url": issue_url, "id": data["id"]}
 
         except httpx.HTTPStatusError as e:
-            logger.error("Jira API error", status=e.response.status_code, detail=e.response.text[:200])
+            logger.error(
+                "Jira API error",
+                status=e.response.status_code,
+                detail=e.response.text[:200],
+            )
             return {"key": "", "url": "", "id": ""}
         except Exception as e:
             logger.error("Jira ticket creation failed", error=str(e))
@@ -362,7 +388,9 @@ class JiraTicketClient:
                     content=json.dumps({"transition": {"id": in_progress["id"]}}),
                 )
         except Exception as e:
-            logger.warning("Failed to transition Jira ticket", key=issue_key, error=str(e))
+            logger.warning(
+                "Failed to transition Jira ticket", key=issue_key, error=str(e)
+            )
 
     async def close(self) -> None:
         await self._client.aclose()

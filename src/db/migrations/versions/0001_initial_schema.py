@@ -37,10 +37,16 @@ def upgrade() -> None:
         sa.Column("config", sa.dialects.postgresql.JSONB, default={}),
         sa.Column("dbt_model_ref", sa.String(256)),
         sa.Column("kafka_topic", sa.String(256)),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
         sa.Column("deleted_at", sa.DateTime(timezone=True)),
-        sa.UniqueConstraint("tenant_id", "schema_name", "table_name", name="uq_pipeline_table"),
+        sa.UniqueConstraint(
+            "tenant_id", "schema_name", "table_name", name="uq_pipeline_table"
+        ),
     )
     op.create_index("ix_pipeline_tables_tenant", "pipeline_tables", ["tenant_id"])
 
@@ -48,16 +54,26 @@ def upgrade() -> None:
     op.create_table(
         "schema_versions",
         sa.Column("id", sa.dialects.postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("table_id", sa.dialects.postgresql.UUID(as_uuid=True),
-                  sa.ForeignKey("pipeline_tables.id"), nullable=False),
+        sa.Column(
+            "table_id",
+            sa.dialects.postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("pipeline_tables.id"),
+            nullable=False,
+        ),
         sa.Column("version_hash", sa.String(64), nullable=False),
         sa.Column("columns", sa.dialects.postgresql.JSONB, nullable=False),
         sa.Column("partition_info", sa.dialects.postgresql.JSONB),
         sa.Column("row_count", sa.BigInteger),
         sa.Column("size_bytes", sa.BigInteger),
-        sa.Column("captured_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "captured_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
     )
     op.create_index("ix_schema_versions_table_id", "schema_versions", ["table_id"])
     op.create_index("ix_schema_versions_captured", "schema_versions", ["captured_at"])
@@ -66,10 +82,16 @@ def upgrade() -> None:
     op.create_table(
         "dq_snapshots",
         sa.Column("id", sa.dialects.postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("table_id", sa.dialects.postgresql.UUID(as_uuid=True),
-                  sa.ForeignKey("pipeline_tables.id"), nullable=False),
+        sa.Column(
+            "table_id",
+            sa.dialects.postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("pipeline_tables.id"),
+            nullable=False,
+        ),
         sa.Column("tenant_id", sa.String(64), nullable=False),
-        sa.Column("captured_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "captured_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
         sa.Column("overall_score", sa.Float, nullable=False),
         sa.Column("completeness_score", sa.Float, default=100.0),
         sa.Column("validity_score", sa.Float, default=100.0),
@@ -82,10 +104,16 @@ def upgrade() -> None:
         sa.Column("total_checks", sa.Integer, default=0),
         sa.Column("ge_results", sa.dialects.postgresql.JSONB, default={}),
         sa.Column("metadata", sa.dialects.postgresql.JSONB, default={}),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
     )
-    op.create_index("ix_dq_snapshots_table_captured", "dq_snapshots", ["table_id", "captured_at"])
+    op.create_index(
+        "ix_dq_snapshots_table_captured", "dq_snapshots", ["table_id", "captured_at"]
+    )
     op.create_index("ix_dq_snapshots_tenant", "dq_snapshots", ["tenant_id"])
 
     # ---------- incidents ----------
@@ -93,8 +121,12 @@ def upgrade() -> None:
         "incidents",
         sa.Column("id", sa.dialects.postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("tenant_id", sa.String(64), nullable=False),
-        sa.Column("table_id", sa.dialects.postgresql.UUID(as_uuid=True),
-                  sa.ForeignKey("pipeline_tables.id"), nullable=False),
+        sa.Column(
+            "table_id",
+            sa.dialects.postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("pipeline_tables.id"),
+            nullable=False,
+        ),
         sa.Column("title", sa.String(512), nullable=False),
         sa.Column("description", sa.Text),
         sa.Column("anomaly_type", sa.String(64), nullable=False),
@@ -116,8 +148,12 @@ def upgrade() -> None:
         sa.Column("resolved_at", sa.DateTime(timezone=True)),
         sa.Column("resolved_by", sa.String(256)),
         sa.Column("resolution_notes", sa.Text),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
         sa.Column("deleted_at", sa.DateTime(timezone=True)),
     )
     op.create_index("ix_incidents_tenant_status", "incidents", ["tenant_id", "status"])
@@ -128,8 +164,12 @@ def upgrade() -> None:
     op.create_table(
         "remediation_actions",
         sa.Column("id", sa.dialects.postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("incident_id", sa.dialects.postgresql.UUID(as_uuid=True),
-                  sa.ForeignKey("incidents.id"), nullable=False),
+        sa.Column(
+            "incident_id",
+            sa.dialects.postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("incidents.id"),
+            nullable=False,
+        ),
         sa.Column("action_type", sa.String(64), nullable=False),
         sa.Column("status", sa.String(32), default="pending"),
         sa.Column("generated_sql", sa.Text),
@@ -140,17 +180,27 @@ def upgrade() -> None:
         sa.Column("approved_by", sa.String(256)),
         sa.Column("execution_log", sa.Text),
         sa.Column("metadata", sa.dialects.postgresql.JSONB, default={}),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
     )
-    op.create_index("ix_remediation_incident_id", "remediation_actions", ["incident_id"])
+    op.create_index(
+        "ix_remediation_incident_id", "remediation_actions", ["incident_id"]
+    )
 
     # ---------- anomaly_model_runs ----------
     op.create_table(
         "anomaly_model_runs",
         sa.Column("id", sa.dialects.postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("table_id", sa.dialects.postgresql.UUID(as_uuid=True),
-                  sa.ForeignKey("pipeline_tables.id"), nullable=False),
+        sa.Column(
+            "table_id",
+            sa.dialects.postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("pipeline_tables.id"),
+            nullable=False,
+        ),
         sa.Column("model_type", sa.String(64), nullable=False),
         sa.Column("mlflow_run_id", sa.String(128)),
         sa.Column("mlflow_experiment_id", sa.String(64)),
@@ -165,10 +215,16 @@ def upgrade() -> None:
         sa.Column("parameters", sa.dialects.postgresql.JSONB, default={}),
         sa.Column("feature_importance", sa.dialects.postgresql.JSONB, default={}),
         sa.Column("trained_at", sa.DateTime(timezone=True)),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
     )
-    op.create_index("ix_model_runs_table_type", "anomaly_model_runs", ["table_id", "model_type"])
+    op.create_index(
+        "ix_model_runs_table_type", "anomaly_model_runs", ["table_id", "model_type"]
+    )
 
     # ---------- document_chunks (RAG) ----------
     op.create_table(
@@ -182,12 +238,20 @@ def upgrade() -> None:
         sa.Column("chunk_index", sa.Integer, default=0),
         sa.Column("embedding", Vector(VECTOR_DIM)),
         sa.Column("metadata", sa.dialects.postgresql.JSONB, default={}),
-        sa.Column("ingested_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "ingested_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
     )
     op.create_index("ix_document_chunks_tenant", "document_chunks", ["tenant_id"])
-    op.create_index("ix_document_chunks_source", "document_chunks", ["source_type", "source_id"])
+    op.create_index(
+        "ix_document_chunks_source", "document_chunks", ["source_type", "source_id"]
+    )
     # HNSW vector index for fast ANN search
     op.execute(
         "CREATE INDEX ix_document_chunks_embedding_hnsw ON document_chunks "
@@ -199,8 +263,11 @@ def upgrade() -> None:
         "incident_memories",
         sa.Column("id", sa.dialects.postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("tenant_id", sa.String(64), nullable=False),
-        sa.Column("incident_id", sa.dialects.postgresql.UUID(as_uuid=True),
-                  sa.ForeignKey("incidents.id")),
+        sa.Column(
+            "incident_id",
+            sa.dialects.postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("incidents.id"),
+        ),
         sa.Column("memory_type", sa.String(64), nullable=False),
         sa.Column("content", sa.Text, nullable=False),
         sa.Column("summary", sa.Text),
@@ -208,8 +275,12 @@ def upgrade() -> None:
         sa.Column("relevance_score", sa.Float),
         sa.Column("tags", sa.dialects.postgresql.JSONB, default=[]),
         sa.Column("metadata", sa.dialects.postgresql.JSONB, default={}),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
     )
     op.create_index("ix_incident_memories_tenant", "incident_memories", ["tenant_id"])
     op.execute(
@@ -221,8 +292,12 @@ def upgrade() -> None:
     op.create_table(
         "sla_trends",
         sa.Column("id", sa.dialects.postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("table_id", sa.dialects.postgresql.UUID(as_uuid=True),
-                  sa.ForeignKey("pipeline_tables.id"), nullable=False),
+        sa.Column(
+            "table_id",
+            sa.dialects.postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("pipeline_tables.id"),
+            nullable=False,
+        ),
         sa.Column("window_start", sa.DateTime(timezone=True), nullable=False),
         sa.Column("granularity", sa.String(16), nullable=False),
         sa.Column("row_count", sa.BigInteger),
@@ -232,18 +307,32 @@ def upgrade() -> None:
         sa.Column("p95_latency_ms", sa.Float),
         sa.Column("anomaly_count", sa.Integer, default=0),
         sa.Column("metrics", sa.dialects.postgresql.JSONB, default={}),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.UniqueConstraint("table_id", "window_start", "granularity", name="uq_sla_trend_window"),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
+        sa.UniqueConstraint(
+            "table_id", "window_start", "granularity", name="uq_sla_trend_window"
+        ),
     )
-    op.create_index("ix_sla_trends_table_window", "sla_trends", ["table_id", "window_start"])
+    op.create_index(
+        "ix_sla_trends_table_window", "sla_trends", ["table_id", "window_start"]
+    )
 
 
 def downgrade() -> None:
     tables = [
-        "sla_trends", "incident_memories", "document_chunks",
-        "anomaly_model_runs", "remediation_actions", "incidents",
-        "dq_snapshots", "schema_versions", "pipeline_tables",
+        "sla_trends",
+        "incident_memories",
+        "document_chunks",
+        "anomaly_model_runs",
+        "remediation_actions",
+        "incidents",
+        "dq_snapshots",
+        "schema_versions",
+        "pipeline_tables",
     ]
     for table in tables:
         op.drop_table(table)

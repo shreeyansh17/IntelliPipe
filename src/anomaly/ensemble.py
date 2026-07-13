@@ -37,23 +37,27 @@ settings = get_settings()
 # Data contracts
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class AnomalyResult:
     """
     Unified anomaly detection result with explainability metadata.
     """
+
     is_anomaly: bool
-    ensemble_score: float          # 0-1: higher = more anomalous
-    if_score: float                # Isolation Forest normalised score
-    ae_score: float                # Autoencoder reconstruction error
-    zscore_max: float              # Maximum Z-score across features
-    severity: str                  # critical / high / medium / low
-    anomaly_type: str              # statistical / null_spike / outlier / etc.
-    affected_features: List[str]   # Top features driving the anomaly
+    ensemble_score: float  # 0-1: higher = more anomalous
+    if_score: float  # Isolation Forest normalised score
+    ae_score: float  # Autoencoder reconstruction error
+    zscore_max: float  # Maximum Z-score across features
+    severity: str  # critical / high / medium / low
+    anomaly_type: str  # statistical / null_spike / outlier / etc.
+    affected_features: List[str]  # Top features driving the anomaly
     feature_contributions: Dict[str, float]  # Feature → contribution score
-    explanation: str               # Human-readable explanation
+    explanation: str  # Human-readable explanation
     model_versions: Dict[str, str] = field(default_factory=dict)
-    detected_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    detected_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
 
 SEVERITY_THRESHOLDS = {
@@ -96,7 +100,9 @@ def extract_features(df: pd.DataFrame) -> pd.DataFrame:
     features = pd.DataFrame()
 
     if "total_amount" in df.columns:
-        features["total_amount"] = pd.to_numeric(df["total_amount"], errors="coerce").fillna(0)
+        features["total_amount"] = pd.to_numeric(
+            df["total_amount"], errors="coerce"
+        ).fillna(0)
     else:
         features["total_amount"] = 0.0
 
@@ -106,32 +112,46 @@ def extract_features(df: pd.DataFrame) -> pd.DataFrame:
         features["subtotal"] = 0.0
 
     for col in ["tax_amount", "shipping_amount"]:
-        features[col] = pd.to_numeric(df.get(col, pd.Series([0] * len(df))), errors="coerce").fillna(0)
+        features[col] = pd.to_numeric(
+            df.get(col, pd.Series([0] * len(df))), errors="coerce"
+        ).fillna(0)
 
     # Derived features from items array (pre-exploded)
     if "item_count" in df.columns:
-        features["item_count"] = pd.to_numeric(df["item_count"], errors="coerce").fillna(1)
+        features["item_count"] = pd.to_numeric(
+            df["item_count"], errors="coerce"
+        ).fillna(1)
     else:
         features["item_count"] = 1.0
 
     if "avg_item_price" in df.columns:
-        features["avg_item_price"] = pd.to_numeric(df["avg_item_price"], errors="coerce").fillna(0)
+        features["avg_item_price"] = pd.to_numeric(
+            df["avg_item_price"], errors="coerce"
+        ).fillna(0)
     else:
-        features["avg_item_price"] = features["total_amount"] / features["item_count"].clip(lower=1)
+        features["avg_item_price"] = features["total_amount"] / features[
+            "item_count"
+        ].clip(lower=1)
 
     if "max_item_quantity" in df.columns:
-        features["max_item_quantity"] = pd.to_numeric(df["max_item_quantity"], errors="coerce").fillna(1)
+        features["max_item_quantity"] = pd.to_numeric(
+            df["max_item_quantity"], errors="coerce"
+        ).fillna(1)
     else:
         features["max_item_quantity"] = 1.0
 
     if "total_quantity" in df.columns:
-        features["total_quantity"] = pd.to_numeric(df["total_quantity"], errors="coerce").fillna(1)
+        features["total_quantity"] = pd.to_numeric(
+            df["total_quantity"], errors="coerce"
+        ).fillna(1)
     else:
         features["total_quantity"] = features["item_count"]
 
     # Discount variance (spread of discounts across items)
     if "discount_variance" in df.columns:
-        features["discount_variance"] = pd.to_numeric(df["discount_variance"], errors="coerce").fillna(0)
+        features["discount_variance"] = pd.to_numeric(
+            df["discount_variance"], errors="coerce"
+        ).fillna(0)
     else:
         features["discount_variance"] = 0.0
 
@@ -146,6 +166,7 @@ def extract_features(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Isolation Forest detector
 # ---------------------------------------------------------------------------
+
 
 class IsolationForestDetector:
     """
@@ -176,14 +197,16 @@ class IsolationForestDetector:
             experiment_id=mlflow.set_experiment(mlflow_experiment).experiment_id,
             run_name=f"IF_{table_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
         ) as run:
-            mlflow.log_params({
-                "contamination": self._contamination,
-                "n_estimators": self._n_estimators,
-                "random_state": 42,
-                "features": ",".join(X.columns.tolist()),
-                "training_rows": len(X),
-                "table_name": table_name,
-            })
+            mlflow.log_params(
+                {
+                    "contamination": self._contamination,
+                    "n_estimators": self._n_estimators,
+                    "random_state": 42,
+                    "features": ",".join(X.columns.tolist()),
+                    "training_rows": len(X),
+                    "table_name": table_name,
+                }
+            )
 
             self._scaler = StandardScaler()
             X_scaled = self._scaler.fit_transform(X)
@@ -198,10 +221,14 @@ class IsolationForestDetector:
 
             # Log model metrics
             anomaly_pct = (self._model.predict(X_scaled) == -1).mean()
-            mlflow.log_metrics({
-                "training_anomaly_pct": float(anomaly_pct),
-                "avg_path_length": float(np.mean(self._model.score_samples(X_scaled))),
-            })
+            mlflow.log_metrics(
+                {
+                    "training_anomaly_pct": float(anomaly_pct),
+                    "avg_path_length": float(
+                        np.mean(self._model.score_samples(X_scaled))
+                    ),
+                }
+            )
             mlflow.sklearn.log_model(self._model, "isolation_forest_model")
 
             self._version = run.info.run_id[:8]
@@ -233,9 +260,7 @@ class IsolationForestDetector:
         normalised = 1 - (raw_scores - min_s) / (max_s - min_s)
         return np.clip(normalised, 0, 1)
 
-    def feature_contributions(
-        self, row: pd.Series
-    ) -> Dict[str, float]:
+    def feature_contributions(self, row: pd.Series) -> Dict[str, float]:
         """Approximate per-feature contribution via perturbation analysis."""
         if self._model is None or self._scaler is None:
             return {}
@@ -262,6 +287,7 @@ class IsolationForestDetector:
 # Autoencoder detector (PyTorch-based)
 # ---------------------------------------------------------------------------
 
+
 class AutoencoderDetector:
     """
     Simple feed-forward autoencoder for reconstruction-error anomaly detection.
@@ -282,6 +308,7 @@ class AutoencoderDetector:
         try:
             import torch
             import torch.nn as nn
+
             self._torch_available = True
             self._torch = torch
             self._nn = nn
@@ -302,7 +329,9 @@ class AutoencoderDetector:
             nn.Linear(32, input_dim),
         )
 
-    def train(self, df: pd.DataFrame, mlflow_experiment: str, table_name: str = "orders") -> str:
+    def train(
+        self, df: pd.DataFrame, mlflow_experiment: str, table_name: str = "orders"
+    ) -> str:
         """Train autoencoder on clean training data."""
         if not self._torch_available:
             return "disabled"
@@ -328,13 +357,15 @@ class AutoencoderDetector:
                 dataset, batch_size=self._batch_size, shuffle=True
             )
 
-            mlflow.log_params({
-                "latent_dim": self._latent_dim,
-                "epochs": self._epochs,
-                "batch_size": self._batch_size,
-                "input_dim": input_dim,
-                "training_rows": len(X),
-            })
+            mlflow.log_params(
+                {
+                    "latent_dim": self._latent_dim,
+                    "epochs": self._epochs,
+                    "batch_size": self._batch_size,
+                    "input_dim": input_dim,
+                    "training_rows": len(X),
+                }
+            )
 
             losses = []
             for epoch in range(self._epochs):
@@ -359,10 +390,12 @@ class AutoencoderDetector:
             self._threshold = float(np.percentile(errors, 95))
             self._model = model
 
-            mlflow.log_metrics({
-                "final_train_loss": losses[-1],
-                "anomaly_threshold": self._threshold,
-            })
+            mlflow.log_metrics(
+                {
+                    "final_train_loss": losses[-1],
+                    "anomaly_threshold": self._threshold,
+                }
+            )
 
             self._version = run.info.run_id[:8]
             logger.info(
@@ -375,7 +408,11 @@ class AutoencoderDetector:
 
     def score(self, df: pd.DataFrame) -> np.ndarray:
         """Return normalised anomaly scores based on reconstruction error."""
-        if not self._torch_available or self._scaler is None or not hasattr(self, "_model"):
+        if (
+            not self._torch_available
+            or self._scaler is None
+            or not hasattr(self, "_model")
+        ):
             return np.zeros(len(df))
 
         torch = self._torch
@@ -399,6 +436,7 @@ class AutoencoderDetector:
 # ---------------------------------------------------------------------------
 # Z-Score fallback detector
 # ---------------------------------------------------------------------------
+
 
 class ZScoreDetector:
     """
@@ -433,7 +471,11 @@ class ZScoreDetector:
             if col not in self._medians or self._mads.get(col, 0) == 0:
                 continue
             # Modified Z-Score: 0.6745 * (x - median) / MAD
-            modified_z = 0.6745 * np.abs(X[col] - self._medians[col]) / max(self._mads[col], 1e-10)
+            modified_z = (
+                0.6745
+                * np.abs(X[col] - self._medians[col])
+                / max(self._mads[col], 1e-10)
+            )
             max_zscores = np.maximum(max_zscores, modified_z.values)
 
         # Normalise: z >= threshold → anomaly
@@ -449,7 +491,11 @@ class ZScoreDetector:
         for col in X.columns:
             if col not in self._medians or self._mads.get(col, 0) == 0:
                 continue
-            z = 0.6745 * np.abs(X[col] - self._medians[col]) / max(self._mads[col], 1e-10)
+            z = (
+                0.6745
+                * np.abs(X[col] - self._medians[col])
+                / max(self._mads[col], 1e-10)
+            )
             for i, (cur_max, cur_z) in enumerate(zip(max_scores, z.values)):
                 if cur_z > cur_max:
                     max_scores[i] = cur_z
@@ -461,6 +507,7 @@ class ZScoreDetector:
 # ---------------------------------------------------------------------------
 # Ensemble scorer
 # ---------------------------------------------------------------------------
+
 
 class EnsembleAnomalyScorer:
     """
@@ -504,9 +551,9 @@ class EnsembleAnomalyScorer:
         zscore_scores = self._zscore.score(df)
 
         ensemble = (
-            self._weights["isolation_forest"] * if_scores +
-            self._weights["autoencoder"] * ae_scores +
-            self._weights["zscore"] * zscore_scores
+            self._weights["isolation_forest"] * if_scores
+            + self._weights["autoencoder"] * ae_scores
+            + self._weights["zscore"] * zscore_scores
         )
 
         results = []

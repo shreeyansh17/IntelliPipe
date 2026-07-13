@@ -50,6 +50,7 @@ Be precise, technical, and concise. Cite specific model names and column names w
 # Document loaders for different source types
 # ---------------------------------------------------------------------------
 
+
 class DBTDocumentLoader:
     """
     Loads and chunks dbt project documentation from:
@@ -105,7 +106,11 @@ class DBTDocumentLoader:
                     tests = col_meta.get("data_tests", col_meta.get("tests", []))
                     content_parts.append(
                         f"- **{col_name}**: {desc}"
-                        + (f" (tests: {', '.join(str(t) for t in tests)})" if tests else "")
+                        + (
+                            f" (tests: {', '.join(str(t) for t in tests)})"
+                            if tests
+                            else ""
+                        )
                     )
 
             # Upstream dependencies
@@ -154,7 +159,9 @@ class DBTDocumentLoader:
                 continue
 
             name = node.get("name", "")
-            upstream = [n.split(".")[-1] for n in node.get("depends_on", {}).get("nodes", [])]
+            upstream = [
+                n.split(".")[-1] for n in node.get("depends_on", {}).get("nodes", [])
+            ]
 
             # Find downstream models
             downstream = [
@@ -173,16 +180,18 @@ class DBTDocumentLoader:
                 f"The data flows: {' → '.join(upstream[-3:] + [name] + downstream[:3])}"
             )
 
-            lineage_docs.append(Document(
-                text=content,
-                metadata={
-                    "source_type": "lineage",
-                    "model_name": name,
-                    "upstream": upstream,
-                    "downstream": downstream,
-                },
-                id_=f"lineage_{node_id}",
-            ))
+            lineage_docs.append(
+                Document(
+                    text=content,
+                    metadata={
+                        "source_type": "lineage",
+                        "model_name": name,
+                        "upstream": upstream,
+                        "downstream": downstream,
+                    },
+                    id_=f"lineage_{node_id}",
+                )
+            )
 
         return lineage_docs
 
@@ -190,6 +199,7 @@ class DBTDocumentLoader:
 # ---------------------------------------------------------------------------
 # Embedding service
 # ---------------------------------------------------------------------------
+
 
 class AnthropicEmbeddingAdapter:
     """
@@ -211,6 +221,7 @@ class AnthropicEmbeddingAdapter:
         # In production: use voyage-3-lite (Anthropic's embedding model via Voyage AI)
         try:
             import voyageai  # type: ignore
+
             vo = voyageai.Client()
             result = vo.embed([text], model="voyage-3-lite")
             return result.embeddings[0]
@@ -228,10 +239,11 @@ class AnthropicEmbeddingAdapter:
 # Main RAG Engine
 # ---------------------------------------------------------------------------
 
+
 class IntelliPipeRAGEngine:
     """
     Full RAG pipeline for data platform natural language querying.
-    
+
     Workflow:
     1. Ingest dbt manifest + lineage into document store
     2. Chunk documents with SentenceSplitter
@@ -292,12 +304,14 @@ class IntelliPipeRAGEngine:
 
             for node in nodes:
                 embedding = self._embedder.get_text_embedding(node.text)
-                chunks.append({
-                    "content": node.text,
-                    "embedding": embedding,
-                    "metadata": {**doc.metadata, "chunk_length": len(node.text)},
-                    "source_url": doc.metadata.get("path"),
-                })
+                chunks.append(
+                    {
+                        "content": node.text,
+                        "embedding": embedding,
+                        "metadata": {**doc.metadata, "chunk_length": len(node.text)},
+                        "source_url": doc.metadata.get("path"),
+                    }
+                )
 
             n = await self._repo.upsert_chunks(
                 tenant_id=tenant_id,
@@ -319,7 +333,7 @@ class IntelliPipeRAGEngine:
     ) -> Dict[str, Any]:
         """
         Answer a natural language question using RAG.
-        
+
         Returns:
         - answer: Claude's synthesised answer
         - sources: List of source chunks used
@@ -343,7 +357,9 @@ class IntelliPipeRAGEngine:
             )
 
         if not relevant_chunks:
-            RAG_QUERIES_TOTAL.labels(query_type=source_type or "all", status="no_results").inc()
+            RAG_QUERIES_TOTAL.labels(
+                query_type=source_type or "all", status="no_results"
+            ).inc()
             return {
                 "answer": "I couldn't find relevant documentation to answer this question.",
                 "sources": [],
@@ -359,12 +375,14 @@ class IntelliPipeRAGEngine:
                 f"[Source {i+1}: {chunk.source_type} / {chunk.source_id}]\n{chunk.content}"
             )
             if include_sources:
-                sources.append({
-                    "source_type": chunk.source_type,
-                    "source_id": chunk.source_id,
-                    "content_preview": chunk.content[:200],
-                    "metadata": chunk.metadata,
-                })
+                sources.append(
+                    {
+                        "source_type": chunk.source_type,
+                        "source_id": chunk.source_id,
+                        "content_preview": chunk.content[:200],
+                        "metadata": chunk.metadata,
+                    }
+                )
 
         context = "\n\n---\n\n".join(context_parts)
 
@@ -384,7 +402,9 @@ class IntelliPipeRAGEngine:
         )
 
         answer = response.content[0].text if response.content else ""
-        RAG_QUERIES_TOTAL.labels(query_type=source_type or "all", status="success").inc()
+        RAG_QUERIES_TOTAL.labels(
+            query_type=source_type or "all", status="success"
+        ).inc()
 
         logger.info(
             "RAG query answered",
@@ -417,5 +437,7 @@ class IntelliPipeRAGEngine:
             f"(deviation: {abs(actual_value - expected_value) / max(expected_value, 1):.1%}). "
             f"What could cause this discrepancy based on the data model and lineage?"
         )
-        result = await self.query(question, tenant_id=tenant_id, source_type="dbt_model")
+        result = await self.query(
+            question, tenant_id=tenant_id, source_type="dbt_model"
+        )
         return result["answer"]

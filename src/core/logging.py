@@ -65,6 +65,7 @@ def _add_otel_context(
     """Inject OpenTelemetry trace/span IDs for log-trace correlation."""
     try:
         from opentelemetry import trace
+
         span = trace.get_current_span()
         if span.is_recording():
             ctx = span.get_span_context()
@@ -75,10 +76,19 @@ def _add_otel_context(
     return event_dict
 
 
-_SENSITIVE_KEYS = frozenset({
-    "password", "secret", "token", "api_key", "apikey",
-    "authorization", "credential", "private_key", "access_key",
-})
+_SENSITIVE_KEYS = frozenset(
+    {
+        "password",
+        "secret",
+        "token",
+        "api_key",
+        "apikey",
+        "authorization",
+        "credential",
+        "private_key",
+        "access_key",
+    }
+)
 
 
 def _scrub_sensitive_data(
@@ -87,11 +97,15 @@ def _scrub_sensitive_data(
     event_dict: EventDict,
 ) -> EventDict:
     """Replace sensitive field values with ***REDACTED***."""
+
     def _scrub(obj: Any) -> Any:
         if isinstance(obj, dict):
             return {
-                k: "***REDACTED***" if any(s in k.lower() for s in _SENSITIVE_KEYS)
-                else _scrub(v)
+                k: (
+                    "***REDACTED***"
+                    if any(s in k.lower() for s in _SENSITIVE_KEYS)
+                    else _scrub(v)
+                )
                 for k, v in obj.items()
             }
         if isinstance(obj, (list, tuple)):
@@ -140,7 +154,8 @@ def configure_logging(
         renderer = structlog.dev.ConsoleRenderer(colors=True)
 
     structlog.configure(
-        processors=shared_processors + [
+        processors=shared_processors
+        + [
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         wrapper_class=structlog.stdlib.BoundLogger,

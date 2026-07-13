@@ -40,8 +40,17 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from src.core.config import get_settings
-from src.core.logging import configure_logging, get_logger, set_request_id, set_tenant_id
-from src.core.telemetry import API_REQUEST_DURATION, API_REQUESTS_IN_FLIGHT, setup_telemetry
+from src.core.logging import (
+    configure_logging,
+    get_logger,
+    set_request_id,
+    set_tenant_id,
+)
+from src.core.telemetry import (
+    API_REQUEST_DURATION,
+    API_REQUESTS_IN_FLIGHT,
+    setup_telemetry,
+)
 
 logger = get_logger(__name__, component="api")
 settings = get_settings()
@@ -56,15 +65,18 @@ limiter = Limiter(key_func=get_remote_address)
 # Pydantic request/response schemas
 # ---------------------------------------------------------------------------
 
+
 class TokenRequest(BaseModel):
     username: str
     password: str
     tenant_id: str = "default"
 
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
+
 
 class IncidentResponse(BaseModel):
     id: str
@@ -80,6 +92,7 @@ class IncidentResponse(BaseModel):
     created_at: str
     resolved_at: Optional[str]
 
+
 class DQScoreResponse(BaseModel):
     table: str
     tenant_id: str
@@ -92,16 +105,19 @@ class DQScoreResponse(BaseModel):
     row_count: int
     computed_at: str
 
+
 class IncidentListResponse(BaseModel):
     incidents: List[IncidentResponse]
     total: int
     page: int
     page_size: int
 
+
 class RAGQueryRequest(BaseModel):
     question: str = Field(..., min_length=5, max_length=1000)
     source_type: Optional[str] = None
     top_k: int = Field(default=5, ge=1, le=20)
+
 
 class RAGQueryResponse(BaseModel):
     answer: str
@@ -109,15 +125,18 @@ class RAGQueryResponse(BaseModel):
     confidence: float
     chunks_retrieved: int
 
+
 class HealthResponse(BaseModel):
     status: str
     version: str
     timestamp: str
     checks: Dict[str, str]
 
+
 # ---------------------------------------------------------------------------
 # App lifecycle
 # ---------------------------------------------------------------------------
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -146,7 +165,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         decode_responses=True,
     )
 
-    logger.info("IntelliPipe API started", version=settings.app_version, env=settings.environment)
+    logger.info(
+        "IntelliPipe API started",
+        version=settings.app_version,
+        env=settings.environment,
+    )
     yield
 
     await app.state.redis.close()
@@ -217,12 +240,19 @@ SECRET_KEY = settings.api.secret_key.get_secret_value()
 # Dummy user store — replace with real user repo in production
 _USERS: Dict[str, Dict[str, Any]] = {
     "admin": {"password": "intellipipe-admin", "tenant_id": "default", "role": "admin"},
-    "viewer": {"password": "intellipipe-view", "tenant_id": "default", "role": "viewer"},
+    "viewer": {
+        "password": "intellipipe-view",
+        "tenant_id": "default",
+        "role": "viewer",
+    },
 }
 
 
 def create_access_token(data: Dict[str, Any], expires_minutes: int) -> str:
-    payload = {**data, "exp": datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)}
+    payload = {
+        **data,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=expires_minutes),
+    }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -230,11 +260,17 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> Dict[str, Any]:
     try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM]
+        )
         username: str = payload.get("sub", "")
         if not username:
             raise HTTPException(status_code=401, detail="Invalid token")
-        return {"username": username, "tenant_id": payload.get("tenant_id", "default"), "role": payload.get("role", "viewer")}
+        return {
+            "username": username,
+            "tenant_id": payload.get("tenant_id", "default"),
+            "role": payload.get("role", "viewer"),
+        }
     except JWTError:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
@@ -248,6 +284,7 @@ def require_admin(user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str,
 # ---------------------------------------------------------------------------
 # Auth endpoints
 # ---------------------------------------------------------------------------
+
 
 @app.post("/api/v1/auth/token", response_model=TokenResponse, tags=["Auth"])
 async def login(req: TokenRequest) -> TokenResponse:
@@ -266,6 +303,7 @@ async def login(req: TokenRequest) -> TokenResponse:
 # ---------------------------------------------------------------------------
 # Health & readiness
 # ---------------------------------------------------------------------------
+
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check(request: Request) -> HealthResponse:
@@ -297,7 +335,10 @@ async def readiness_probe() -> Dict[str, str]:
 # DQ Score endpoints
 # ---------------------------------------------------------------------------
 
-@app.get("/api/v1/dq/scores", response_model=List[DQScoreResponse], tags=["Data Quality"])
+
+@app.get(
+    "/api/v1/dq/scores", response_model=List[DQScoreResponse], tags=["Data Quality"]
+)
 @limiter.limit("200/minute")
 async def get_all_dq_scores(
     request: Request,
@@ -315,23 +356,29 @@ async def get_all_dq_scores(
         raw = await redis_client.get(key)
         if raw:
             data = json.loads(raw)
-            scores.append(DQScoreResponse(
-                table=data.get("table", ""),
-                tenant_id=data.get("tenant_id", tenant_id),
-                overall=data.get("overall", 0.0),
-                completeness=data.get("completeness", 0.0),
-                validity=data.get("validity", 0.0),
-                uniqueness=data.get("uniqueness", 0.0),
-                freshness=data.get("freshness", 0.0),
-                consistency=data.get("consistency", 0.0),
-                row_count=int(data.get("row_count", 0)),
-                computed_at=data.get("computed_at", ""),
-            ))
+            scores.append(
+                DQScoreResponse(
+                    table=data.get("table", ""),
+                    tenant_id=data.get("tenant_id", tenant_id),
+                    overall=data.get("overall", 0.0),
+                    completeness=data.get("completeness", 0.0),
+                    validity=data.get("validity", 0.0),
+                    uniqueness=data.get("uniqueness", 0.0),
+                    freshness=data.get("freshness", 0.0),
+                    consistency=data.get("consistency", 0.0),
+                    row_count=int(data.get("row_count", 0)),
+                    computed_at=data.get("computed_at", ""),
+                )
+            )
 
     return scores
 
 
-@app.get("/api/v1/dq/scores/{table_name}", response_model=DQScoreResponse, tags=["Data Quality"])
+@app.get(
+    "/api/v1/dq/scores/{table_name}",
+    response_model=DQScoreResponse,
+    tags=["Data Quality"],
+)
 async def get_dq_score(
     table_name: str,
     request: Request,
@@ -344,15 +391,20 @@ async def get_dq_score(
     raw = await redis_client.get(key)
 
     if not raw:
-        raise HTTPException(status_code=404, detail=f"No DQ score found for table '{table_name}'")
+        raise HTTPException(
+            status_code=404, detail=f"No DQ score found for table '{table_name}'"
+        )
 
     data = json.loads(raw)
-    return DQScoreResponse(**{k: data[k] for k in DQScoreResponse.model_fields if k in data})
+    return DQScoreResponse(
+        **{k: data[k] for k in DQScoreResponse.model_fields if k in data}
+    )
 
 
 # ---------------------------------------------------------------------------
 # Incident endpoints
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/v1/incidents", response_model=IncidentListResponse, tags=["Incidents"])
 @limiter.limit("100/minute")
@@ -374,7 +426,11 @@ async def list_incidents(
     )
 
 
-@app.get("/api/v1/incidents/{incident_id}", response_model=IncidentResponse, tags=["Incidents"])
+@app.get(
+    "/api/v1/incidents/{incident_id}",
+    response_model=IncidentResponse,
+    tags=["Incidents"],
+)
 async def get_incident(
     incident_id: str,
     user: Dict[str, Any] = Depends(get_current_user),
@@ -390,13 +446,16 @@ async def resolve_incident(
     user: Dict[str, Any] = Depends(get_current_user),
 ) -> Dict[str, str]:
     """Mark an incident as resolved."""
-    logger.info("Incident resolved", incident_id=incident_id, resolved_by=user["username"])
+    logger.info(
+        "Incident resolved", incident_id=incident_id, resolved_by=user["username"]
+    )
     return {"status": "resolved", "incident_id": incident_id}
 
 
 # ---------------------------------------------------------------------------
 # RAG / Docs query endpoints
 # ---------------------------------------------------------------------------
+
 
 @app.post("/api/v1/rag/query", response_model=RAGQueryResponse, tags=["RAG"])
 @limiter.limit("30/minute")
@@ -406,7 +465,9 @@ async def query_docs(
     user: Dict[str, Any] = Depends(get_current_user),
 ) -> RAGQueryResponse:
     """Natural language query over dbt docs, lineage, and data contracts."""
-    logger.info("RAG query received", question=body.question[:80], tenant=user["tenant_id"])
+    logger.info(
+        "RAG query received", question=body.question[:80], tenant=user["tenant_id"]
+    )
     # In production: call RAGEngine.query(...)
     return RAGQueryResponse(
         answer="RAG engine not yet connected to this endpoint in dev mode.",
@@ -419,6 +480,7 @@ async def query_docs(
 # ---------------------------------------------------------------------------
 # Anomaly alert replay endpoint (for testing)
 # ---------------------------------------------------------------------------
+
 
 @app.post("/api/v1/alerts/simulate", tags=["Testing"])
 async def simulate_alert(
@@ -447,6 +509,7 @@ async def simulate_alert(
 # WebSocket — real-time DQ score streaming
 # ---------------------------------------------------------------------------
 
+
 class ConnectionManager:
     """Manages WebSocket connections for real-time broadcasting."""
 
@@ -456,11 +519,19 @@ class ConnectionManager:
     async def connect(self, ws: WebSocket, tenant_id: str) -> None:
         await ws.accept()
         self._active.setdefault(tenant_id, []).append(ws)
-        logger.info("WebSocket connected", tenant_id=tenant_id, connections=len(self._active[tenant_id]))
+        logger.info(
+            "WebSocket connected",
+            tenant_id=tenant_id,
+            connections=len(self._active[tenant_id]),
+        )
 
     def disconnect(self, ws: WebSocket, tenant_id: str) -> None:
         if tenant_id in self._active:
-            self._active[tenant_id].discard(ws) if hasattr(self._active[tenant_id], 'discard') else None
+            (
+                self._active[tenant_id].discard(ws)
+                if hasattr(self._active[tenant_id], "discard")
+                else None
+            )
             try:
                 self._active[tenant_id].remove(ws)
             except ValueError:
@@ -501,12 +572,14 @@ async def dq_scores_websocket(websocket: WebSocket, tenant_id: str) -> None:
                     scores.append(json.loads(raw))
 
             if scores:
-                await websocket.send_json({
-                    "type": "dq_scores_update",
-                    "tenant_id": tenant_id,
-                    "scores": scores,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                await websocket.send_json(
+                    {
+                        "type": "dq_scores_update",
+                        "tenant_id": tenant_id,
+                        "scores": scores,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
 
             await asyncio.sleep(5)
 
@@ -531,11 +604,13 @@ async def alerts_websocket(websocket: WebSocket, tenant_id: str) -> None:
             if alert_raw:
                 alert = json.loads(alert_raw)
                 if alert.get("tenant_id") == tenant_id:
-                    await websocket.send_json({
-                        "type": "new_alert",
-                        "alert": alert,
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "new_alert",
+                            "alert": alert,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        }
+                    )
             await asyncio.sleep(1)
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket, tenant_id)
@@ -545,9 +620,15 @@ async def alerts_websocket(websocket: WebSocket, tenant_id: str) -> None:
 # Exception handlers
 # ---------------------------------------------------------------------------
 
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
-    logger.warning("HTTP error", status_code=exc.status_code, detail=exc.detail, path=str(request.url))
+    logger.warning(
+        "HTTP error",
+        status_code=exc.status_code,
+        detail=exc.detail,
+        path=str(request.url),
+    )
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": exc.detail, "status_code": exc.status_code},
@@ -556,7 +637,9 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    logger.error("Unhandled exception", error=str(exc), path=str(request.url), exc_info=True)
+    logger.error(
+        "Unhandled exception", error=str(exc), path=str(request.url), exc_info=True
+    )
     return JSONResponse(
         status_code=500,
         content={"error": "Internal server error", "status_code": 500},

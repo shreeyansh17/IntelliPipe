@@ -34,13 +34,14 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-
 # ---------------------------------------------------------------------------
 # Base model with audit fields
 # ---------------------------------------------------------------------------
 
+
 class Base(DeclarativeBase):
     """SQLAlchemy declarative base with common audit columns."""
+
     pass
 
 
@@ -78,6 +79,7 @@ class SoftDeleteMixin:
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
+
 
 class SeverityLevel(str, PyEnum):
     CRITICAL = "critical"
@@ -119,6 +121,7 @@ class RemediationStatus(str, PyEnum):
 # Core domain models
 # ---------------------------------------------------------------------------
 
+
 class PipelineTable(Base, TimestampMixin, SoftDeleteMixin):
     """
     Registry of tables monitored by IntelliPipe.
@@ -148,7 +151,9 @@ class PipelineTable(Base, TimestampMixin, SoftDeleteMixin):
     # Relationships
     incidents: Mapped[List["Incident"]] = relationship(back_populates="table")
     dq_snapshots: Mapped[List["DQSnapshot"]] = relationship(back_populates="table")
-    schema_versions: Mapped[List["SchemaVersion"]] = relationship(back_populates="table")
+    schema_versions: Mapped[List["SchemaVersion"]] = relationship(
+        back_populates="table"
+    )
 
 
 class SchemaVersion(Base, TimestampMixin):
@@ -322,7 +327,9 @@ class AnomalyModelRun(Base, TimestampMixin):
     table_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("pipeline_tables.id"), nullable=False
     )
-    model_type: Mapped[str] = mapped_column(String(64), nullable=False)  # isolation_forest | autoencoder | zscore
+    model_type: Mapped[str] = mapped_column(
+        String(64), nullable=False
+    )  # isolation_forest | autoencoder | zscore
     mlflow_run_id: Mapped[Optional[str]] = mapped_column(String(128))
     mlflow_experiment_id: Mapped[Optional[str]] = mapped_column(String(64))
     model_version: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -353,12 +360,16 @@ class DocumentChunk(Base, TimestampMixin):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    source_type: Mapped[str] = mapped_column(String(64), nullable=False)  # dbt_model | lineage | contract
+    source_type: Mapped[str] = mapped_column(
+        String(64), nullable=False
+    )  # dbt_model | lineage | contract
     source_id: Mapped[str] = mapped_column(String(256), nullable=False)
     source_url: Mapped[Optional[str]] = mapped_column(String(512))
     content: Mapped[str] = mapped_column(Text, nullable=False)
     chunk_index: Mapped[int] = mapped_column(Integer, default=0)
-    embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(1536))  # OpenAI ada-002 dim
+    embedding: Mapped[Optional[List[float]]] = mapped_column(
+        Vector(1536)
+    )  # OpenAI ada-002 dim
     metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
     ingested_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
@@ -380,7 +391,9 @@ class IncidentMemory(Base, TimestampMixin):
     incident_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("incidents.id"), nullable=True
     )
-    memory_type: Mapped[str] = mapped_column(String(64), nullable=False)  # rca | fix | postmortem
+    memory_type: Mapped[str] = mapped_column(
+        String(64), nullable=False
+    )  # rca | fix | postmortem
     content: Mapped[str] = mapped_column(Text, nullable=False)
     summary: Mapped[Optional[str]] = mapped_column(Text)
     embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(1536))
@@ -407,8 +420,12 @@ class SLATrend(Base, TimestampMixin):
     table_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("pipeline_tables.id"), nullable=False
     )
-    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    granularity: Mapped[str] = mapped_column(String(16), nullable=False)  # hourly | daily
+    window_start: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    granularity: Mapped[str] = mapped_column(
+        String(16), nullable=False
+    )  # hourly | daily
     row_count: Mapped[Optional[int]] = mapped_column(BigInteger)
     avg_dq_score: Mapped[Optional[float]] = mapped_column(Float)
     incident_count: Mapped[int] = mapped_column(Integer, default=0)

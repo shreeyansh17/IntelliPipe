@@ -33,7 +33,11 @@ from pydantic import BaseModel, Field
 
 from src.core.config import get_settings
 from src.core.logging import get_logger
-from src.core.telemetry import LLM_API_CALLS_TOTAL, LLM_LATENCY_HISTOGRAM, LLM_TOKEN_USAGE_TOTAL
+from src.core.telemetry import (
+    LLM_API_CALLS_TOTAL,
+    LLM_LATENCY_HISTOGRAM,
+    LLM_TOKEN_USAGE_TOTAL,
+)
 
 logger = get_logger(__name__, component="llm_agent")
 settings = get_settings()
@@ -104,8 +108,11 @@ Keep it factual, blameless, and focused on system improvements."""
 # Tool definitions for LangChain agent
 # ---------------------------------------------------------------------------
 
+
 class RetrieveSimilarIncidentsInput(BaseModel):
-    anomaly_type: str = Field(description="Type of anomaly: schema_drift, null_spike, statistical, etc.")
+    anomaly_type: str = Field(
+        description="Type of anomaly: schema_drift, null_spike, statistical, etc."
+    )
     table_name: str = Field(description="The affected table name")
     top_k: int = Field(default=3, description="Number of similar incidents to retrieve")
 
@@ -120,6 +127,7 @@ class GenerateDBTFixInput(BaseModel):
 # ---------------------------------------------------------------------------
 # LLM instrumented wrapper
 # ---------------------------------------------------------------------------
+
 
 class InstrumentedAnthropicLLM:
     """
@@ -198,8 +206,12 @@ class InstrumentedAnthropicLLM:
 
             except anthropic.RateLimitError as e:
                 last_error = e
-                wait = self._retry_delay * (2 ** attempt)
-                logger.warning("Claude rate limit hit, backing off", wait_seconds=wait, attempt=attempt)
+                wait = self._retry_delay * (2**attempt)
+                logger.warning(
+                    "Claude rate limit hit, backing off",
+                    wait_seconds=wait,
+                    attempt=attempt,
+                )
                 await asyncio.sleep(wait)
 
             except anthropic.APIError as e:
@@ -209,16 +221,21 @@ class InstrumentedAnthropicLLM:
                 ).inc()
                 if attempt < self._max_retries - 1:
                     await asyncio.sleep(self._retry_delay * (attempt + 1))
-                    logger.warning("LLM API error, retrying", error=str(e), attempt=attempt)
+                    logger.warning(
+                        "LLM API error, retrying", error=str(e), attempt=attempt
+                    )
                 else:
                     logger.error("LLM API failed after retries", error=str(e))
 
-        raise RuntimeError(f"LLM call failed after {self._max_retries} attempts: {last_error}")
+        raise RuntimeError(
+            f"LLM call failed after {self._max_retries} attempts: {last_error}"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Root Cause Analysis Agent
 # ---------------------------------------------------------------------------
+
 
 class RootCauseAnalysisAgent:
     """
@@ -302,7 +319,10 @@ class RootCauseAnalysisAgent:
                     clean_text = clean_text[4:]
             rca = json.loads(clean_text)
         except json.JSONDecodeError:
-            logger.warning("Failed to parse RCA JSON, using fallback", response_preview=response_text[:200])
+            logger.warning(
+                "Failed to parse RCA JSON, using fallback",
+                response_preview=response_text[:200],
+            )
             rca = {
                 "root_cause": response_text,
                 "confidence": 0.5,
@@ -322,6 +342,7 @@ class RootCauseAnalysisAgent:
 # ---------------------------------------------------------------------------
 # Fix Code Generator
 # ---------------------------------------------------------------------------
+
 
 class FixCodeGenerator:
     """
@@ -354,7 +375,9 @@ class FixCodeGenerator:
         ]
 
         if dbt_model_context:
-            context.append(f"## Current dbt Model (to be modified)\n```sql\n{dbt_model_context}\n```")
+            context.append(
+                f"## Current dbt Model (to be modified)\n```sql\n{dbt_model_context}\n```"
+            )
         else:
             # Generate a plausible dbt model based on table name
             table = alert.get("table_name", "orders")
@@ -409,6 +432,7 @@ class FixCodeGenerator:
 # Postmortem Generator
 # ---------------------------------------------------------------------------
 
+
 class PostmortemGenerator:
     """Generates AI-written blameless postmortems for resolved incidents."""
 
@@ -441,6 +465,7 @@ class PostmortemGenerator:
 # ---------------------------------------------------------------------------
 # Main Orchestration Agent
 # ---------------------------------------------------------------------------
+
 
 class IntelliPipeOrchestrationAgent:
     """
@@ -560,7 +585,9 @@ class IntelliPipeOrchestrationAgent:
             "jira_ticket_key": jira_result.get("key"),
             "jira_ticket_url": jira_result.get("url"),
             "slack_message_ts": slack_result.get("ts"),
-            "processing_time_ms": int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000),
+            "processing_time_ms": int(
+                (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            ),
         }
 
         logger.info(
@@ -611,13 +638,16 @@ class IntelliPipeOrchestrationAgent:
         fix: Dict[str, Any],
     ) -> None:
         """Persist incident knowledge to vector memory for future retrieval."""
-        memory_content = json.dumps({
-            "alert": alert,
-            "root_cause": rca.get("root_cause"),
-            "investigation_steps": rca.get("investigation_steps"),
-            "remediation_approach": rca.get("remediation_approach"),
-            "fix_summary": fix.get("change_summary"),
-        }, default=str)
+        memory_content = json.dumps(
+            {
+                "alert": alert,
+                "root_cause": rca.get("root_cause"),
+                "investigation_steps": rca.get("investigation_steps"),
+                "remediation_approach": rca.get("remediation_approach"),
+                "fix_summary": fix.get("change_summary"),
+            },
+            default=str,
+        )
 
         try:
             await self._memory_repo.store(

@@ -102,12 +102,13 @@ def compute_dimension_scores(
     scores: Dict[str, float] = {}
     for dimension, counts in dimension_counts.items():
         total = counts["pass"] + counts["fail"]
-        scores[dimension] = round((counts["pass"] / total) * 100, 2) if total > 0 else 100.0
+        scores[dimension] = (
+            round((counts["pass"] / total) * 100, 2) if total > 0 else 100.0
+        )
 
     # Weighted overall
     overall = sum(
-        scores.get(dim, 100.0) * weight
-        for dim, weight in DIMENSION_WEIGHTS.items()
+        scores.get(dim, 100.0) * weight for dim, weight in DIMENSION_WEIGHTS.items()
     )
     scores["overall"] = round(overall, 2)
 
@@ -117,6 +118,7 @@ def compute_dimension_scores(
 # ---------------------------------------------------------------------------
 # GE Runner
 # ---------------------------------------------------------------------------
+
 
 class GEValidationRunner:
     """
@@ -164,7 +166,9 @@ class GEValidationRunner:
             return self._stub_results(df, suite_name, table_name)
 
         try:
-            datasource = self._context.sources.add_or_update_pandas(name="runtime_pandas")
+            datasource = self._context.sources.add_or_update_pandas(
+                name="runtime_pandas"
+            )
             asset = datasource.add_dataframe_asset(name=f"{table_name}_asset")
             batch_request = asset.build_batch_request(dataframe=df)
 
@@ -188,7 +192,9 @@ class GEValidationRunner:
 
             # Track metrics
             for result in results_list:
-                exp_type = result.get("expectation_config", {}).get("expectation_type", "")
+                exp_type = result.get("expectation_config", {}).get(
+                    "expectation_type", ""
+                )
                 check_result = "pass" if result.get("success") else "fail"
                 DQ_CHECKS_TOTAL.labels(
                     check_type=exp_type,
@@ -197,7 +203,11 @@ class GEValidationRunner:
                 ).inc()
 
                 if not result.get("success"):
-                    severity = result.get("expectation_config", {}).get("meta", {}).get("severity", "medium")
+                    severity = (
+                        result.get("expectation_config", {})
+                        .get("meta", {})
+                        .get("severity", "medium")
+                    )
                     DQ_VIOLATIONS_TOTAL.labels(
                         rule_name=exp_type,
                         table=table_name,
@@ -237,9 +247,13 @@ class GEValidationRunner:
                 "failed_expectations": [
                     {
                         "type": r.get("expectation_config", {}).get("expectation_type"),
-                        "column": r.get("expectation_config", {}).get("kwargs", {}).get("column"),
+                        "column": r.get("expectation_config", {})
+                        .get("kwargs", {})
+                        .get("column"),
                         "result": r.get("result", {}),
-                        "severity": r.get("expectation_config", {}).get("meta", {}).get("severity", "medium"),
+                        "severity": r.get("expectation_config", {})
+                        .get("meta", {})
+                        .get("severity", "medium"),
                     }
                     for r in failed
                 ],
@@ -335,7 +349,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Run GE validation suite")
     parser.add_argument("--table", required=True, help="Table name to validate")
-    parser.add_argument("--suite", default=None, help="Suite name (defaults to {table}.critical)")
+    parser.add_argument(
+        "--suite", default=None, help="Suite name (defaults to {table}.critical)"
+    )
     parser.add_argument("--tenant-id", default="default")
     args = parser.parse_args()
 
@@ -346,15 +362,18 @@ if __name__ == "__main__":
     # In production: load real data from PostgreSQL / Delta Lake
     # For CLI demo: generate sample data
     import numpy as np
-    sample_df = pd.DataFrame({
-        "event_id": [str(uuid.uuid4()) for _ in range(1000)],
-        "order_id": [f"ORD-{i:06d}" for i in range(1000)],
-        "tenant_id": ["default"] * 1000,
-        "total_amount": np.random.lognormal(5, 1, 1000),
-        "order_status": np.random.choice(
-            ["pending", "confirmed", "shipped", "delivered"], 1000
-        ),
-    })
+
+    sample_df = pd.DataFrame(
+        {
+            "event_id": [str(uuid.uuid4()) for _ in range(1000)],
+            "order_id": [f"ORD-{i:06d}" for i in range(1000)],
+            "tenant_id": ["default"] * 1000,
+            "total_amount": np.random.lognormal(5, 1, 1000),
+            "order_status": np.random.choice(
+                ["pending", "confirmed", "shipped", "delivered"], 1000
+            ),
+        }
+    )
 
     runner = GEValidationRunner()
     result = runner.run_suite(

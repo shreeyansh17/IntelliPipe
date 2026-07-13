@@ -206,6 +206,7 @@ PIPELINE_BATCH_DURATION = Histogram(
 # OpenTelemetry bootstrap
 # ---------------------------------------------------------------------------
 
+
 def setup_telemetry(
     service_name: str,
     service_version: str,
@@ -219,11 +220,13 @@ def setup_telemetry(
     Bootstrap OpenTelemetry tracing + metrics.
     Call once at application startup before any requests are handled.
     """
-    resource = Resource.create({
-        ResourceAttributes.SERVICE_NAME: service_name,
-        ResourceAttributes.SERVICE_VERSION: service_version,
-        ResourceAttributes.DEPLOYMENT_ENVIRONMENT: environment,
-    })
+    resource = Resource.create(
+        {
+            ResourceAttributes.SERVICE_NAME: service_name,
+            ResourceAttributes.SERVICE_VERSION: service_version,
+            ResourceAttributes.DEPLOYMENT_ENVIRONMENT: environment,
+        }
+    )
 
     if enable_tracing:
         tracer_provider = TracerProvider(resource=resource)
@@ -237,7 +240,9 @@ def setup_telemetry(
             OTLPMetricExporter(endpoint=otlp_endpoint, insecure=True),
             export_interval_millis=15000,
         )
-        meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
+        meter_provider = MeterProvider(
+            resource=resource, metric_readers=[metric_reader]
+        )
         otel_metrics.set_meter_provider(meter_provider)
         logger.info("OpenTelemetry metrics enabled")
 
@@ -264,6 +269,7 @@ def get_tracer(name: str) -> trace.Tracer:
 # Decorator helpers
 # ---------------------------------------------------------------------------
 
+
 def traced(
     operation_name: Optional[str] = None,
     attributes: Optional[Dict[str, str]] = None,
@@ -276,6 +282,7 @@ def traced(
         async def process_batch(self, batch_id: str) -> None:
             ...
     """
+
     def decorator(func: F) -> F:
         tracer = get_tracer(func.__module__)
         span_name = operation_name or f"{func.__module__}.{func.__qualname__}"
@@ -311,6 +318,7 @@ def traced(
                     raise
 
         import asyncio
+
         if asyncio.iscoroutinefunction(func):
             return cast(F, async_wrapper)
         return cast(F, sync_wrapper)
@@ -319,7 +327,9 @@ def traced(
 
 
 @contextmanager
-def timed_operation(metric: Histogram, labels: Dict[str, str]) -> Generator[None, None, None]:
+def timed_operation(
+    metric: Histogram, labels: Dict[str, str]
+) -> Generator[None, None, None]:
     """
     Context manager to record operation duration in a Prometheus Histogram.
 

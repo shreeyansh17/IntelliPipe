@@ -46,6 +46,7 @@ settings = get_settings()
 # Circuit breaker for LLM API
 # ---------------------------------------------------------------------------
 
+
 class CircuitBreaker:
     """
     Simple circuit breaker to protect against LLM API outages.
@@ -92,6 +93,7 @@ class CircuitBreaker:
 # ---------------------------------------------------------------------------
 # Alert deduplication cache
 # ---------------------------------------------------------------------------
+
 
 class AlertDeduplicator:
     """
@@ -164,12 +166,15 @@ def compute_severity(alert: Dict[str, Any]) -> SeverityLevel:
                 return SeverityLevel.CRITICAL
             return level
 
-    return ALERT_TYPE_BASE_SEVERITY.get(alert.get("alert_type", ""), SeverityLevel.MEDIUM)
+    return ALERT_TYPE_BASE_SEVERITY.get(
+        alert.get("alert_type", ""), SeverityLevel.MEDIUM
+    )
 
 
 # ---------------------------------------------------------------------------
 # Main processor
 # ---------------------------------------------------------------------------
+
 
 class AlertProcessorWorker:
     """
@@ -186,7 +191,9 @@ class AlertProcessorWorker:
         self._settings = settings
         self._redis: Optional[aioredis.Redis] = None
         self._session_factory: Optional[async_sessionmaker] = None
-        self._circuit_breaker = CircuitBreaker(failure_threshold=5, reset_timeout_seconds=120)
+        self._circuit_breaker = CircuitBreaker(
+            failure_threshold=5, reset_timeout_seconds=120
+        )
         self._deduplicator = AlertDeduplicator(window_minutes=self.DEDUP_WINDOW_MINUTES)
         self._semaphore = asyncio.Semaphore(self.MAX_CONCURRENT_ALERTS)
         self._shutdown_event = asyncio.Event()
@@ -254,7 +261,9 @@ class AlertProcessorWorker:
                 try:
                     alert = json.loads(raw_alert)
                 except json.JSONDecodeError as e:
-                    logger.error("Failed to parse alert JSON", error=str(e), raw=raw_alert[:200])
+                    logger.error(
+                        "Failed to parse alert JSON", error=str(e), raw=raw_alert[:200]
+                    )
                     self._error_count += 1
                     continue
 
@@ -287,7 +296,9 @@ class AlertProcessorWorker:
                 self._error_count += 1
                 await asyncio.sleep(5)
 
-        logger.info("Alert processor shutdown complete", processed=self._processed_count)
+        logger.info(
+            "Alert processor shutdown complete", processed=self._processed_count
+        )
 
     async def _process_alert_safe(self, alert: Dict[str, Any]) -> None:
         """Process a single alert with concurrency control and error handling."""
@@ -320,11 +331,13 @@ class AlertProcessorWorker:
                     # Push to dead-letter for manual investigation
                     await self._redis.lpush(
                         "intellipipe:alerts:failed",
-                        json.dumps({
-                            "alert": alert,
-                            "error": str(e),
-                            "failed_at": datetime.now(timezone.utc).isoformat(),
-                        }),
+                        json.dumps(
+                            {
+                                "alert": alert,
+                                "error": str(e),
+                                "failed_at": datetime.now(timezone.utc).isoformat(),
+                            }
+                        ),
                     )
 
     async def _process_alert(self, alert: Dict[str, Any]) -> None:
@@ -347,6 +360,7 @@ class AlertProcessorWorker:
 
             # Find the table record (or use a placeholder UUID)
             import uuid
+
             table_id = uuid.uuid4()  # In production: lookup via PipelineTable repo
 
             incident = await incident_repo.create(
@@ -357,7 +371,8 @@ class AlertProcessorWorker:
                 severity=severity,
                 description=json.dumps(alert, default=str),
                 anomaly_score=alert.get("dq_score"),
-                affected_columns=alert.get("columns_removed", []) + alert.get("columns_added", []),
+                affected_columns=alert.get("columns_removed", [])
+                + alert.get("columns_added", []),
                 detection_metadata=alert,
             )
 
@@ -394,7 +409,9 @@ class AlertProcessorWorker:
                 doc_repo=doc_repo,
             )
 
-            with timed_operation(PIPELINE_BATCH_DURATION, {"stage": "llm_orchestration"}):
+            with timed_operation(
+                PIPELINE_BATCH_DURATION, {"stage": "llm_orchestration"}
+            ):
                 result = await agent.handle_alert(
                     alert=alert,
                     tenant_id=alert.get("tenant_id", "default"),
@@ -436,6 +453,7 @@ class AlertProcessorWorker:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 async def main() -> None:
     worker = AlertProcessorWorker()

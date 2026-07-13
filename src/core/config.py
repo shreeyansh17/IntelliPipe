@@ -288,14 +288,23 @@ class Settings(BaseSettings):
     def safe_dict(self) -> Dict[str, Any]:
         """Return config dict with secrets masked for logging."""
         data = self.model_dump()
+
         # Recursively mask secret values
         def mask_secrets(obj: Any) -> Any:
             if isinstance(obj, dict):
-                return {k: "***MASKED***" if "secret" in k.lower() or
-                        "password" in k.lower() or "token" in k.lower() or
-                        "key" in k.lower() else mask_secrets(v)
-                        for k, v in obj.items()}
+                return {
+                    k: (
+                        "***MASKED***"
+                        if "secret" in k.lower()
+                        or "password" in k.lower()
+                        or "token" in k.lower()
+                        or "key" in k.lower()
+                        else mask_secrets(v)
+                    )
+                    for k, v in obj.items()
+                }
             return obj
+
         return mask_secrets(data)
 
 

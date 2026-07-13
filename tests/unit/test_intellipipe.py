@@ -22,80 +22,86 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def clean_order_batch() -> pd.DataFrame:
     """Generate a clean batch of order events for testing."""
-    return pd.DataFrame([
-        {
-            "event_id": str(uuid.uuid4()),
-            "order_id": f"ORD-{i:06d}",
-            "total_amount": 150.0 + i * 5,
-            "subtotal": 130.0 + i * 5,
-            "tax_amount": 10.0,
-            "shipping_amount": 10.0,
-            "item_count": 2,
-            "avg_item_price": 65.0 + i * 2.5,
-            "max_item_quantity": 2,
-            "total_quantity": 3,
-            "discount_variance": 0.05,
-        }
-        for i in range(100)
-    ])
+    return pd.DataFrame(
+        [
+            {
+                "event_id": str(uuid.uuid4()),
+                "order_id": f"ORD-{i:06d}",
+                "total_amount": 150.0 + i * 5,
+                "subtotal": 130.0 + i * 5,
+                "tax_amount": 10.0,
+                "shipping_amount": 10.0,
+                "item_count": 2,
+                "avg_item_price": 65.0 + i * 2.5,
+                "max_item_quantity": 2,
+                "total_quantity": 3,
+                "discount_variance": 0.05,
+            }
+            for i in range(100)
+        ]
+    )
 
 
 @pytest.fixture
 def anomalous_order_batch() -> pd.DataFrame:
     """Batch with injected anomalies — extreme prices and quantities."""
-    base = pd.DataFrame([
-        {
-            "event_id": str(uuid.uuid4()),
-            "order_id": f"ORD-{i:06d}",
-            "total_amount": 150.0,
-            "subtotal": 130.0,
-            "tax_amount": 10.0,
-            "shipping_amount": 10.0,
-            "item_count": 2,
-            "avg_item_price": 65.0,
-            "max_item_quantity": 2,
-            "total_quantity": 3,
-            "discount_variance": 0.05,
-        }
-        for i in range(98)
-    ])
+    base = pd.DataFrame(
+        [
+            {
+                "event_id": str(uuid.uuid4()),
+                "order_id": f"ORD-{i:06d}",
+                "total_amount": 150.0,
+                "subtotal": 130.0,
+                "tax_amount": 10.0,
+                "shipping_amount": 10.0,
+                "item_count": 2,
+                "avg_item_price": 65.0,
+                "max_item_quantity": 2,
+                "total_quantity": 3,
+                "discount_variance": 0.05,
+            }
+            for i in range(98)
+        ]
+    )
     # Inject 2 anomalous rows
-    anomalies = pd.DataFrame([
-        {
-            "event_id": str(uuid.uuid4()),
-            "order_id": "ORD-ANOMALY-01",
-            "total_amount": 999999.0,   # Extreme price
-            "subtotal": 999000.0,
-            "tax_amount": 999.0,
-            "shipping_amount": 0.0,
-            "item_count": 1,
-            "avg_item_price": 999999.0,
-            "max_item_quantity": 50000,  # Extreme quantity
-            "total_quantity": 50000,
-            "discount_variance": 0.0,
-        },
-        {
-            "event_id": str(uuid.uuid4()),
-            "order_id": "ORD-ANOMALY-02",
-            "total_amount": 0.01,       # Near-zero amount
-            "subtotal": 0.01,
-            "tax_amount": 0.0,
-            "shipping_amount": 0.0,
-            "item_count": 1000,         # Suspicious item count
-            "avg_item_price": 0.00001,
-            "max_item_quantity": 1000,
-            "total_quantity": 1000,
-            "discount_variance": 0.99,
-        },
-    ])
+    anomalies = pd.DataFrame(
+        [
+            {
+                "event_id": str(uuid.uuid4()),
+                "order_id": "ORD-ANOMALY-01",
+                "total_amount": 999999.0,  # Extreme price
+                "subtotal": 999000.0,
+                "tax_amount": 999.0,
+                "shipping_amount": 0.0,
+                "item_count": 1,
+                "avg_item_price": 999999.0,
+                "max_item_quantity": 50000,  # Extreme quantity
+                "total_quantity": 50000,
+                "discount_variance": 0.0,
+            },
+            {
+                "event_id": str(uuid.uuid4()),
+                "order_id": "ORD-ANOMALY-02",
+                "total_amount": 0.01,  # Near-zero amount
+                "subtotal": 0.01,
+                "tax_amount": 0.0,
+                "shipping_amount": 0.0,
+                "item_count": 1000,  # Suspicious item count
+                "avg_item_price": 0.00001,
+                "max_item_quantity": 1000,
+                "total_quantity": 1000,
+                "discount_variance": 0.99,
+            },
+        ]
+    )
     return pd.concat([base, anomalies], ignore_index=True)
 
 
@@ -134,6 +140,7 @@ def sample_rca() -> Dict[str, Any]:
 # Anomaly Detection Tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestIsolationForestDetector:
     """Unit tests for IsolationForestDetector."""
 
@@ -145,7 +152,9 @@ class TestIsolationForestDetector:
         with patch("src.anomaly.ensemble.mlflow") as mock_mlflow:
             mock_run = MagicMock()
             mock_run.info.run_id = "abc123def456"
-            mock_mlflow.start_run.return_value.__enter__ = MagicMock(return_value=mock_run)
+            mock_mlflow.start_run.return_value.__enter__ = MagicMock(
+                return_value=mock_run
+            )
             mock_mlflow.start_run.return_value.__exit__ = MagicMock(return_value=False)
             mock_mlflow.set_experiment.return_value.experiment_id = "exp-1"
 
@@ -290,7 +299,10 @@ class TestEnsembleScorer:
         if_det.score.return_value = np.random.uniform(0, 1, n)
         ae_det.score.return_value = np.random.uniform(0, 1, n)
         z_det.score.return_value = np.random.uniform(0, 1, n)
-        z_det.max_zscores_per_row.return_value = (np.random.uniform(0, 5, n), ["total_amount"] * n)
+        z_det.max_zscores_per_row.return_value = (
+            np.random.uniform(0, 5, n),
+            ["total_amount"] * n,
+        )
         if_det.feature_contributions.return_value = {}
 
         results = scorer.score_batch(clean_order_batch)
@@ -302,23 +314,27 @@ class TestEnsembleScorer:
 # Feature Engineering Tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestFeatureExtraction:
     """Tests for the extract_features function."""
 
     def test_output_shape(self, clean_order_batch: pd.DataFrame):
         from src.anomaly.ensemble import extract_features, ORDER_NUMERIC_FEATURES
+
         features = extract_features(clean_order_batch)
         assert features.shape[0] == len(clean_order_batch)
         assert features.shape[1] == len(ORDER_NUMERIC_FEATURES)
 
     def test_no_nan_values(self, clean_order_batch: pd.DataFrame):
         from src.anomaly.ensemble import extract_features
+
         features = extract_features(clean_order_batch)
         assert not features.isnull().any().any(), "Features must not contain NaN"
 
     def test_handles_missing_columns(self):
         """extract_features must not crash on partial input."""
         from src.anomaly.ensemble import extract_features
+
         minimal_df = pd.DataFrame([{"total_amount": 100.0}])
         features = extract_features(minimal_df)
         assert features.shape[0] == 1
@@ -329,50 +345,77 @@ class TestFeatureExtraction:
 # Kafka Producer Tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestEventGenerator:
     """Tests for synthetic event generation."""
 
     def test_clean_event_has_required_fields(self):
         from src.pipeline.kafka_producer import generate_order_event
+
         event = generate_order_event()
 
-        required = ["event_id", "order_id", "tenant_id", "total_amount", "event_timestamp"]
+        required = [
+            "event_id",
+            "order_id",
+            "tenant_id",
+            "total_amount",
+            "event_timestamp",
+        ]
         for field in required:
             assert field in event, f"Missing required field: {field}"
 
     def test_null_spike_injection(self):
         from src.pipeline.kafka_producer import generate_order_event
+
         events = [generate_order_event(anomaly_type="null_spike") for _ in range(20)]
         null_count = sum(1 for e in events if e.get("customer_email") is None)
-        assert null_count > 10, "null_spike should produce many null customer_email values"
+        assert (
+            null_count > 10
+        ), "null_spike should produce many null customer_email values"
 
     def test_schema_add_injects_extra_columns(self):
         from src.pipeline.kafka_producer import generate_order_event
+
         event = generate_order_event(anomaly_type="schema_add")
-        assert "promo_code" in event or "loyalty_points" in event, (
-            "schema_add should add promo_code or loyalty_points"
-        )
+        assert (
+            "promo_code" in event or "loyalty_points" in event
+        ), "schema_add should add promo_code or loyalty_points"
 
     def test_schema_remove_drops_columns(self):
         from src.pipeline.kafka_producer import generate_order_event
+
         event = generate_order_event(anomaly_type="schema_remove")
-        assert "shipping_amount" not in event, "schema_remove should drop shipping_amount"
+        assert (
+            "shipping_amount" not in event
+        ), "schema_remove should drop shipping_amount"
 
     def test_outlier_injection_extreme_values(self):
         from src.pipeline.kafka_producer import generate_order_event
+
         events = [generate_order_event(anomaly_type="outlier") for _ in range(20)]
         extreme = [e for e in events if e.get("total_amount", 0) > 10000]
-        assert len(extreme) > 5, "outlier should produce some extreme total_amount values"
+        assert (
+            len(extreme) > 5
+        ), "outlier should produce some extreme total_amount values"
 
     def test_invalid_enum_injection(self):
         from src.pipeline.kafka_producer import generate_order_event
-        VALID_STATUSES = {"pending", "confirmed", "shipped", "delivered", "cancelled", "refunded"}
+
+        VALID_STATUSES = {
+            "pending",
+            "confirmed",
+            "shipped",
+            "delivered",
+            "cancelled",
+            "refunded",
+        }
         events = [generate_order_event(anomaly_type="invalid_enum") for _ in range(20)]
         invalid = [e for e in events if e.get("order_status") not in VALID_STATUSES]
         assert len(invalid) > 10, "invalid_enum should produce invalid order statuses"
 
     def test_event_id_is_uuid_format(self):
         from src.pipeline.kafka_producer import generate_order_event
+
         event = generate_order_event()
         try:
             uuid.UUID(event["event_id"])
@@ -381,6 +424,7 @@ class TestEventGenerator:
 
     def test_tenant_assignment(self):
         from src.pipeline.kafka_producer import generate_order_event
+
         event = generate_order_event(tenant_id="tenant_alpha")
         assert event["tenant_id"] == "tenant_alpha"
 
@@ -392,6 +436,7 @@ class TestEventGenerator:
 # ─────────────────────────────────────────────────────────────────────────────
 # API Endpoint Tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestAPIHealth:
     """Tests for health and readiness endpoints."""
@@ -430,6 +475,7 @@ class TestAPIAuth:
     @pytest.fixture
     def client(self):
         from src.api.main import app
+
         app.state.redis = AsyncMock()
         with TestClient(app) as c:
             yield c
@@ -437,7 +483,11 @@ class TestAPIAuth:
     def test_login_valid_credentials(self, client: TestClient):
         resp = client.post(
             "/api/v1/auth/token",
-            json={"username": "admin", "password": "intellipipe-admin", "tenant_id": "default"},
+            json={
+                "username": "admin",
+                "password": "intellipipe-admin",
+                "tenant_id": "default",
+            },
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -448,7 +498,11 @@ class TestAPIAuth:
     def test_login_invalid_credentials(self, client: TestClient):
         resp = client.post(
             "/api/v1/auth/token",
-            json={"username": "admin", "password": "wrong-password", "tenant_id": "default"},
+            json={
+                "username": "admin",
+                "password": "wrong-password",
+                "tenant_id": "default",
+            },
         )
         assert resp.status_code == 401
 
@@ -460,7 +514,11 @@ class TestAPIAuth:
         # Get token
         token_resp = client.post(
             "/api/v1/auth/token",
-            json={"username": "admin", "password": "intellipipe-admin", "tenant_id": "default"},
+            json={
+                "username": "admin",
+                "password": "intellipipe-admin",
+                "tenant_id": "default",
+            },
         )
         token = token_resp.json()["access_token"]
 
@@ -480,6 +538,7 @@ class TestAPIAuth:
 # Schema Drift Tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestSchemaDriftDetection:
     """Tests for the SchemaDriftDetector."""
 
@@ -488,6 +547,7 @@ class TestSchemaDriftDetection:
         mock_redis.lpush = MagicMock()
 
         from src.pipeline.spark_consumer import SchemaDriftDetector
+
         return SchemaDriftDetector(mock_redis, "test_tenant", "raw_orders"), mock_redis
 
     def test_no_drift_returns_none(self, clean_order_batch: pd.DataFrame):
@@ -539,12 +599,16 @@ class TestSchemaDriftDetection:
 # LLM Agent Prompt Tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestLLMPrompts:
     """Tests for LLM prompt construction and parsing."""
 
     def test_jira_description_format(self, sample_alert: Dict, sample_rca: Dict):
         from src.agents.langchain_agent import IntelliPipeOrchestrationAgent
-        desc = IntelliPipeOrchestrationAgent._format_jira_description(sample_alert, sample_rca)
+
+        desc = IntelliPipeOrchestrationAgent._format_jira_description(
+            sample_alert, sample_rca
+        )
 
         assert "null_spike" in desc
         assert "raw_orders" in desc
@@ -557,10 +621,12 @@ class TestLLMPrompts:
         from src.agents.langchain_agent import RootCauseAnalysisAgent
 
         mock_llm = AsyncMock()
-        mock_llm.complete = AsyncMock(return_value=(
-            "The root cause is a missing null check in the upstream service.",
-            {"input_tokens": 100, "output_tokens": 50},
-        ))
+        mock_llm.complete = AsyncMock(
+            return_value=(
+                "The root cause is a missing null check in the upstream service.",
+                {"input_tokens": 100, "output_tokens": 50},
+            )
+        )
 
         agent = RootCauseAnalysisAgent(mock_llm)
         rca = asyncio.get_event_loop().run_until_complete(

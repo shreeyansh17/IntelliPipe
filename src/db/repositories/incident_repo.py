@@ -40,6 +40,7 @@ class BaseRepository:
 # Incident Repository
 # ---------------------------------------------------------------------------
 
+
 class IncidentRepository(BaseRepository):
     """All database operations for Incident domain objects."""
 
@@ -205,6 +206,7 @@ class IncidentRepository(BaseRepository):
 # DQ Snapshot Repository
 # ---------------------------------------------------------------------------
 
+
 class DQSnapshotRepository(BaseRepository):
     """Repository for data quality scorecard snapshots."""
 
@@ -308,6 +310,7 @@ class DQSnapshotRepository(BaseRepository):
 # Document / RAG Repository
 # ---------------------------------------------------------------------------
 
+
 class DocumentChunkRepository(BaseRepository):
     """Repository for RAG document chunks with vector similarity search."""
 
@@ -323,6 +326,7 @@ class DocumentChunkRepository(BaseRepository):
         Returns number of chunks stored.
         """
         from sqlalchemy import delete
+
         await self._session.execute(
             delete(DocumentChunk).where(
                 and_(
@@ -368,9 +372,7 @@ class DocumentChunkRepository(BaseRepository):
         result = await self._session.execute(
             select(DocumentChunk)
             .where(and_(*conditions))
-            .order_by(
-                DocumentChunk.embedding.cosine_distance(query_embedding)
-            )
+            .order_by(DocumentChunk.embedding.cosine_distance(query_embedding))
             .limit(top_k)
         )
         return list(result.scalars().all())
@@ -379,6 +381,7 @@ class DocumentChunkRepository(BaseRepository):
 # ---------------------------------------------------------------------------
 # Incident Memory Repository (long-term agent memory)
 # ---------------------------------------------------------------------------
+
 
 class IncidentMemoryRepository(BaseRepository):
     """Repository for LLM agent long-term vector memory."""

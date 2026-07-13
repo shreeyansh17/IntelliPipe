@@ -1,6 +1,7 @@
 """
 Shared pytest fixtures for IntelliPipe test suite.
 """
+
 import os
 
 # Set test environment variables before any imports

@@ -132,12 +132,18 @@ class GitHubPRClient:
 
             # 6. Assign reviewers
             if self._cfg.pr_reviewers:
-                await self._request_reviewers(org, repo, pr_number, self._cfg.pr_reviewers)
+                await self._request_reviewers(
+                    org, repo, pr_number, self._cfg.pr_reviewers
+                )
 
             # 7. Add labels
-            await self._add_labels(org, repo, pr_number, ["intellipipe", "auto-generated", "data-quality"])
+            await self._add_labels(
+                org, repo, pr_number, ["intellipipe", "auto-generated", "data-quality"]
+            )
 
-            logger.info("PR created", pr_url=pr_url, pr_number=pr_number, branch=branch_name)
+            logger.info(
+                "PR created", pr_url=pr_url, pr_number=pr_number, branch=branch_name
+            )
 
             return {
                 "pr_url": pr_url,
@@ -148,11 +154,27 @@ class GitHubPRClient:
             }
 
         except httpx.HTTPStatusError as e:
-            logger.error("GitHub API error", status=e.response.status_code, detail=e.response.text)
-            return {"pr_url": "", "pr_number": 0, "branch_name": "", "commit_sha": "", "status": "failed"}
+            logger.error(
+                "GitHub API error",
+                status=e.response.status_code,
+                detail=e.response.text,
+            )
+            return {
+                "pr_url": "",
+                "pr_number": 0,
+                "branch_name": "",
+                "commit_sha": "",
+                "status": "failed",
+            }
         except Exception as e:
             logger.error("PR creation failed", error=str(e))
-            return {"pr_url": "", "pr_number": 0, "branch_name": "", "commit_sha": "", "status": "failed"}
+            return {
+                "pr_url": "",
+                "pr_number": 0,
+                "branch_name": "",
+                "commit_sha": "",
+                "status": "failed",
+            }
 
     def _prepare_files(
         self,
@@ -174,10 +196,13 @@ class GitHubPRClient:
 
         # Rollback SQL
         if fix_code.get("rollback_sql"):
-            files[f"rollbacks/{safe_table}_{incident_id[:8]}_rollback.sql"] = fix_code["rollback_sql"]
+            files[f"rollbacks/{safe_table}_{incident_id[:8]}_rollback.sql"] = fix_code[
+                "rollback_sql"
+            ]
 
         # Incident metadata
         import json
+
         files[f".intellipipe/incidents/{incident_id[:8]}.json"] = json.dumps(
             {
                 "incident_id": incident_id,
@@ -281,7 +306,9 @@ Autonomous Data Quality Platform — Incident `{incident_id[:8]}`*"""
         if check.status_code == 200:
             payload["sha"] = check.json()["sha"]
 
-        resp = await self._client.put(f"/repos/{org}/{repo}/contents/{path}", json=payload)
+        resp = await self._client.put(
+            f"/repos/{org}/{repo}/contents/{path}", json=payload
+        )
         resp.raise_for_status()
         return resp.json()["commit"]["sha"]
 
@@ -341,9 +368,7 @@ Autonomous Data Quality Platform — Incident `{incident_id[:8]}`*"""
             "merged": data.get("merged", False),
             "mergeable": data.get("mergeable"),
             "review_decision": data.get("review_decision"),
-            "approvals": sum(
-                1 for r in data.get("requested_reviewers", [])
-            ),
+            "approvals": sum(1 for r in data.get("requested_reviewers", [])),
         }
 
     async def close(self) -> None:

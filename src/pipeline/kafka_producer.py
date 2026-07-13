@@ -43,6 +43,7 @@ settings = get_settings()
 # Domain event schemas
 # ---------------------------------------------------------------------------
 
+
 class OrderStatus(str, Enum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
@@ -94,7 +95,9 @@ class OrderEvent:
     event_timestamp: str
     schema_version: str = "1.0"
     source_system: str = "order-service"
-    partition_date: str = field(default_factory=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    partition_date: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    )
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), default=str)
@@ -104,6 +107,7 @@ class OrderEvent:
 # Anomaly injection strategies
 # ---------------------------------------------------------------------------
 
+
 class AnomalyInjector:
     """
     Probabilistic anomaly injection for testing detection systems.
@@ -111,9 +115,16 @@ class AnomalyInjector:
     """
 
     @staticmethod
-    def inject_null_spike(event: Dict[str, Any], null_probability: float = 0.8) -> Dict[str, Any]:
+    def inject_null_spike(
+        event: Dict[str, Any], null_probability: float = 0.8
+    ) -> Dict[str, Any]:
         """Randomly null out key fields to simulate null spike."""
-        nullable_fields = ["customer_email", "shipping_city", "payment_method", "currency"]
+        nullable_fields = [
+            "customer_email",
+            "shipping_city",
+            "payment_method",
+            "currency",
+        ]
         for field_name in nullable_fields:
             if random.random() < null_probability:
                 event[field_name] = None
@@ -125,7 +136,9 @@ class AnomalyInjector:
         event["promo_code"] = f"PROMO-{random.randint(1000, 9999)}"
         event["loyalty_points"] = random.randint(0, 5000)
         event["referral_source"] = random.choice(["google", "email", "social", None])
-        logger.debug("Schema drift injected: added columns", event_id=event.get("event_id"))
+        logger.debug(
+            "Schema drift injected: added columns", event_id=event.get("event_id")
+        )
         return event
 
     @staticmethod
@@ -169,9 +182,13 @@ class AnomalyInjector:
         return event
 
     @staticmethod
-    def inject_delayed_event(event: Dict[str, Any], delay_hours: int = 48) -> Dict[str, Any]:
+    def inject_delayed_event(
+        event: Dict[str, Any], delay_hours: int = 48
+    ) -> Dict[str, Any]:
         """Set event timestamp far in the past to simulate delayed/stale events."""
-        stale_time = datetime.now(timezone.utc) - timedelta(hours=delay_hours + random.randint(0, 24))
+        stale_time = datetime.now(timezone.utc) - timedelta(
+            hours=delay_hours + random.randint(0, 24)
+        )
         event["event_timestamp"] = stale_time.isoformat()
         event["partition_date"] = (stale_time - timedelta(days=2)).strftime("%Y-%m-%d")
         return event
@@ -202,7 +219,18 @@ PRODUCT_CATALOG = [
 ]
 
 COUNTRIES = ["US", "GB", "CA", "AU", "DE", "FR", "JP", "SG", "IN", "BR"]
-CITIES = ["New York", "London", "Toronto", "Sydney", "Berlin", "Paris", "Tokyo", "Singapore", "Mumbai", "São Paulo"]
+CITIES = [
+    "New York",
+    "London",
+    "Toronto",
+    "Sydney",
+    "Berlin",
+    "Paris",
+    "Tokyo",
+    "Singapore",
+    "Mumbai",
+    "São Paulo",
+]
 TENANTS = ["tenant_alpha", "tenant_beta", "tenant_gamma"]
 
 
@@ -219,7 +247,9 @@ def generate_order_event(
                      outlier, invalid_enum, delayed, duplicate, or None (clean).
     """
     num_items = random.randint(1, 5)
-    selected_products = random.sample(PRODUCT_CATALOG, min(num_items, len(PRODUCT_CATALOG)))
+    selected_products = random.sample(
+        PRODUCT_CATALOG, min(num_items, len(PRODUCT_CATALOG))
+    )
 
     items = []
     subtotal = 0.0
@@ -227,14 +257,16 @@ def generate_order_event(
         qty = random.randint(1, 5)
         price = round(random.uniform(9.99, 1499.99), 2)
         discount = round(random.uniform(0, 0.3), 2)
-        items.append({
-            "product_id": prod_id,
-            "product_name": prod_name,
-            "category": category,
-            "quantity": qty,
-            "unit_price": price,
-            "discount_pct": discount,
-        })
+        items.append(
+            {
+                "product_id": prod_id,
+                "product_name": prod_name,
+                "category": category,
+                "quantity": qty,
+                "unit_price": price,
+                "discount_pct": discount,
+            }
+        )
         subtotal += qty * price * (1 - discount)
 
     subtotal = round(subtotal, 2)
@@ -290,6 +322,7 @@ def generate_order_event(
 # Kafka Producer
 # ---------------------------------------------------------------------------
 
+
 class IntelliPipeProducer:
     """
     Production-grade Kafka producer with:
@@ -327,15 +360,21 @@ class IntelliPipeProducer:
             config["security.protocol"] = self._settings.security_protocol
             if self._settings.sasl_mechanism:
                 config["sasl.mechanisms"] = self._settings.sasl_mechanism
-                config["sasl.username"] = self._settings.sasl_username.get_secret_value()
-                config["sasl.password"] = self._settings.sasl_password.get_secret_value()
+                config["sasl.username"] = (
+                    self._settings.sasl_username.get_secret_value()
+                )
+                config["sasl.password"] = (
+                    self._settings.sasl_password.get_secret_value()
+                )
         return Producer(config)
 
     def _ensure_topics(self) -> None:
         """Create topics if they don't exist."""
         admin = AdminClient({"bootstrap.servers": self._settings.bootstrap_servers})
         topics_to_create = [
-            NewTopic(self._settings.raw_events_topic, num_partitions=12, replication_factor=3),
+            NewTopic(
+                self._settings.raw_events_topic, num_partitions=12, replication_factor=3
+            ),
             NewTopic(self._settings.dlq_topic, num_partitions=3, replication_factor=3),
         ]
         futures = admin.create_topics(topics_to_create)
@@ -424,6 +463,7 @@ class IntelliPipeProducer:
 # ---------------------------------------------------------------------------
 # Simulation runner
 # ---------------------------------------------------------------------------
+
 
 class EventSimulator:
     """

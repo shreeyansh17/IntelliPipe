@@ -28,6 +28,7 @@ settings = get_settings()
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest_asyncio.fixture(scope="session")
 async def db_engine():
     """Create test database engine and tables."""
@@ -83,6 +84,7 @@ def sample_alert() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Redis integration tests
 # ---------------------------------------------------------------------------
+
 
 class TestRedisAlertQueue:
     """Integration tests for Redis alert queue operations."""
@@ -152,6 +154,7 @@ class TestRedisAlertQueue:
 # ---------------------------------------------------------------------------
 # Repository integration tests
 # ---------------------------------------------------------------------------
+
 
 class TestIncidentRepository:
     """Integration tests for IncidentRepository with real PostgreSQL."""
@@ -243,6 +246,7 @@ class TestIncidentRepository:
 # FastAPI integration tests
 # ---------------------------------------------------------------------------
 
+
 class TestAPIIntegration:
     """Full API integration tests with in-process test client."""
 
@@ -296,7 +300,9 @@ class TestAPIIntegration:
         assert data["page_size"] == 10
 
     @pytest.mark.asyncio
-    async def test_rag_query_returns_structured_response(self, auth_client: AsyncClient) -> None:
+    async def test_rag_query_returns_structured_response(
+        self, auth_client: AsyncClient
+    ) -> None:
         resp = await auth_client.post(
             "/api/v1/rag/query",
             json={"question": "What is the stg_raw_orders model?", "top_k": 3},
@@ -309,7 +315,9 @@ class TestAPIIntegration:
         assert isinstance(data["sources"], list)
 
     @pytest.mark.asyncio
-    async def test_simulate_alert_requires_admin(self, auth_client: AsyncClient) -> None:
+    async def test_simulate_alert_requires_admin(
+        self, auth_client: AsyncClient
+    ) -> None:
         """Alert simulation should require admin role."""
         # Current client is admin — should work
         mock_redis = auth_client.app.state.redis
@@ -317,7 +325,11 @@ class TestAPIIntegration:
 
         resp = await auth_client.post(
             "/api/v1/alerts/simulate",
-            params={"alert_type": "null_spike", "table_name": "raw_orders", "severity": "medium"},
+            params={
+                "alert_type": "null_spike",
+                "table_name": "raw_orders",
+                "severity": "medium",
+            },
         )
         assert resp.status_code == 200
 
@@ -334,7 +346,11 @@ class TestAPIIntegration:
             # Login as viewer
             resp = await client.post(
                 "/api/v1/auth/token",
-                json={"username": "viewer", "password": "intellipipe-view", "tenant_id": "default"},
+                json={
+                    "username": "viewer",
+                    "password": "intellipipe-view",
+                    "tenant_id": "default",
+                },
             )
             assert resp.status_code == 200
             viewer_token = resp.json()["access_token"]
@@ -366,6 +382,7 @@ class TestAPIIntegration:
 # Alert processor deduplication tests
 # ---------------------------------------------------------------------------
 
+
 class TestAlertDeduplicator:
     """Integration tests for the alert deduplication logic."""
 
@@ -377,11 +394,17 @@ class TestAlertDeduplicator:
         assert not dedup.is_duplicate(sample_alert)
         assert dedup.is_duplicate(sample_alert)  # Second call → duplicate
 
-    def test_different_alerts_not_deduplicated(self, sample_alert: Dict[str, Any]) -> None:
+    def test_different_alerts_not_deduplicated(
+        self, sample_alert: Dict[str, Any]
+    ) -> None:
         from src.agents.alert_processor import AlertDeduplicator
 
         dedup = AlertDeduplicator(window_minutes=30)
-        alert_2 = {**sample_alert, "alert_type": "schema_drift", "table_name": "stg_orders"}
+        alert_2 = {
+            **sample_alert,
+            "alert_type": "schema_drift",
+            "table_name": "stg_orders",
+        }
 
         assert not dedup.is_duplicate(sample_alert)
         assert not dedup.is_duplicate(alert_2)  # Different key → not a duplicate
