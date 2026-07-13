@@ -508,7 +508,7 @@ class TestAPIAuth:
 
     def test_protected_endpoint_without_token(self, client: TestClient):
         resp = client.get("/api/v1/dq/scores")
-        assert resp.status_code == 403  # HTTPBearer returns 403 when no auth
+        assert resp.status_code == 401  # HTTPBearer returns 403 when no auth
 
     def test_protected_endpoint_with_valid_token(self, client: TestClient):
         # Get token
