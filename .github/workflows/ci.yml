@@ -75,10 +75,13 @@ jobs:
           severity: high
           confidence: high
 
+      - name: Install dependencies
+        run: pip install -r requirements/base.txt -r requirements/api.txt
+
       - name: Dependency vulnerability scan
         run: |
           pip install pip-audit
-          pip-audit --requirement requirements/base.txt --requirement requirements/api.txt
+          pip-audit
 
   # ────────────────────────────────────────
   # Unit Tests
