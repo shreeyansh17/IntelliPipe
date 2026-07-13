@@ -15,23 +15,18 @@ from __future__ import annotations
 import asyncio
 import json
 import signal
-import sys
 import time
-from collections import defaultdict
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Set
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
 import redis.asyncio as aioredis
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from src.agents.langchain_agent import IntelliPipeOrchestrationAgent
 from src.core.config import get_settings
 from src.core.logging import configure_logging, get_logger, LogContext
 from src.core.telemetry import (
     INCIDENTS_CREATED_TOTAL,
-    INCIDENT_RESOLUTION_TIME,
-    LLM_API_CALLS_TOTAL,
-    setup_telemetry,
     timed_operation,
     PIPELINE_BATCH_DURATION,
 )

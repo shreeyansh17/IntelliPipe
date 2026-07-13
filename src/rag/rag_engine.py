@@ -17,26 +17,15 @@ Uses:
 from __future__ import annotations
 
 import json
-import os
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import anthropic
-import numpy as np
 from llama_index.core import (
     Document,
-    ServiceContext,
-    Settings as LlamaSettings,
-    StorageContext,
-    VectorStoreIndex,
 )
 from llama_index.core.node_parser import SentenceSplitter
-from llama_index.core.query_engine import RetrieverQueryEngine
-from llama_index.core.retrievers import VectorIndexRetriever
-from llama_index.core.schema import NodeWithScore, TextNode
-from llama_index.embeddings.openai import OpenAIEmbedding
 
 from src.core.config import get_settings
 from src.core.logging import get_logger

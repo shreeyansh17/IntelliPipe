@@ -12,15 +12,14 @@ Programmatic GE suite execution with:
 from __future__ import annotations
 
 import json
+import sys
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import great_expectations as gx
 import pandas as pd
 import redis
-from great_expectations.core.batch import RuntimeBatchRequest
-from great_expectations.data_context import AbstractDataContext
 
 from src.core.config import get_settings
 from src.core.logging import get_logger

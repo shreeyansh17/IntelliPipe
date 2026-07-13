@@ -29,14 +29,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import anthropic
-from langchain.agents import AgentExecutor, create_react_agent
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain.chains import LLMChain
-from langchain.memory import ConversationBufferWindowMemory
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.schema import AIMessage, HumanMessage, SystemMessage
-from langchain.tools import BaseTool, StructuredTool, tool
-from langchain_anthropic import ChatAnthropic
 from pydantic import BaseModel, Field
 
 from src.core.config import get_settings
@@ -588,11 +580,11 @@ class IntelliPipeOrchestrationAgent:
         """Retrieve similar past incidents using vector similarity search."""
         try:
             # Create a text embedding query from the alert
-            query_text = (
-                f"anomaly type: {alert.get('alert_type')} "
-                f"table: {alert.get('table_name')} "
-                f"severity: {alert.get('severity')}"
-            )
+            #  query_text = (
+            #     f"anomaly type: {alert.get('alert_type')} "
+            #     f"table: {alert.get('table_name')} "
+            #     f"severity: {alert.get('severity')}"
+            # )
             # Note: In production, call embedding API here
             # For now return empty list as embedding service is async
             return []
@@ -603,7 +595,7 @@ class IntelliPipeOrchestrationAgent:
     async def _retrieve_dbt_context(self, alert: Dict[str, Any]) -> Optional[str]:
         """Retrieve relevant dbt model SQL from the RAG system."""
         try:
-            table_name = alert.get("table_name", "")
+            # table_name = alert.get("table_name", "")
             # In production: query doc_repo.vector_search(...)
             return None
         except Exception as e:

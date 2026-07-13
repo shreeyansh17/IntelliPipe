@@ -12,10 +12,9 @@ Tests for:
 
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
@@ -381,7 +380,7 @@ class TestEventGenerator:
             pytest.fail(f"event_id is not a valid UUID: {event['event_id']}")
 
     def test_tenant_assignment(self):
-        from src.pipeline.kafka_producer import generate_order_event, TENANTS
+        from src.pipeline.kafka_producer import generate_order_event
         event = generate_order_event(tenant_id="tenant_alpha")
         assert event["tenant_id"] == "tenant_alpha"
 

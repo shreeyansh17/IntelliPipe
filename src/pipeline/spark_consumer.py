@@ -17,10 +17,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
-import os
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import redis
 from pyspark.sql import DataFrame, SparkSession
@@ -28,12 +26,8 @@ from pyspark.sql import functions as F
 from pyspark.sql.streaming import StreamingQuery
 from pyspark.sql.types import (
     ArrayType,
-    BooleanType,
     DoubleType,
-    FloatType,
     IntegerType,
-    LongType,
-    MapType,
     StringType,
     StructField,
     StructType,
@@ -45,7 +39,6 @@ from src.core.logging import get_logger
 from src.core.telemetry import (
     EVENTS_CONSUMED_TOTAL,
     SCHEMA_DRIFT_DETECTED_TOTAL,
-    SLA_VIOLATIONS_TOTAL,
     timed_operation,
     PIPELINE_BATCH_DURATION,
 )

@@ -15,7 +15,7 @@ import logging
 import sys
 import uuid
 from contextvars import ContextVar
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import structlog
 from structlog.types import EventDict, WrappedLogger

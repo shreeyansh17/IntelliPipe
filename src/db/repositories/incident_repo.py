@@ -10,26 +10,20 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, desc, func, or_, select, update
+from sqlalchemy import and_, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.logging import get_logger
 from src.db.models import (
-    AnomalyModelRun,
     AnomalyType,
     DQSnapshot,
     DocumentChunk,
     Incident,
     IncidentMemory,
     IncidentStatus,
-    PipelineTable,
-    RemediationAction,
-    RemediationStatus,
-    SchemaVersion,
     SeverityLevel,
-    SLATrend,
 )
 
 logger = get_logger(__name__, component="repository")

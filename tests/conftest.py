@@ -2,7 +2,6 @@
 Shared pytest fixtures for IntelliPipe test suite.
 """
 import os
-import pytest
 
 # Set test environment variables before any imports
 os.environ.setdefault("ENVIRONMENT", "test")

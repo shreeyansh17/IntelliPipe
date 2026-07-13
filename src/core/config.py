@@ -7,11 +7,10 @@ Follows 12-factor app principles with full validation and secret masking.
 
 from __future__ import annotations
 
-import os
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
-from pydantic import AnyHttpUrl, Field, PostgresDsn, RedisDsn, SecretStr, field_validator
+from pydantic import AnyHttpUrl, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
