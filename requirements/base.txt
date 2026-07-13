@@ -33,3 +33,11 @@ httpx>=0.26.0,<1.0.0
 python-jose[cryptography]>=3.3.0,<4.0.0
 tenacity>=8.2.3,<9.0.0
 pandas>=2.0.0
+
+# Security overrides - force safe versions
+pillow>=12.3.0
+pypdf>=6.13.3
+urllib3>=2.6.3
+marshmallow>=3.26.2
+orjson>=3.11.5
+soupsieve>=2.8.4
