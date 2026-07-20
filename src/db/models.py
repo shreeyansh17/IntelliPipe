@@ -219,7 +219,7 @@ class DQSnapshot(Base, TimestampMixin):
     failed_checks: Mapped[int] = mapped_column(Integer, default=0)
     total_checks: Mapped[int] = mapped_column(Integer, default=0)
     ge_results: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
-    metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+extra_metadata: Mapped[Dict[str, Any]] = mapped_column("metadata", JSONB, default=dict)
 
     table: Mapped["PipelineTable"] = relationship(back_populates="dq_snapshots")
 
