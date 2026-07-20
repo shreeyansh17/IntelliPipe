@@ -164,6 +164,7 @@ jobs:
       - name: Run DB migrations
         run: alembic upgrade head
         env:
+          PYTHONPATH: . 
           DB_HOST: localhost
           DB_USER: intellipipe
           DB_PASSWORD: intellipipe
