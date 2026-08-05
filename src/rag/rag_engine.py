@@ -372,7 +372,7 @@ class IntelliPipeRAGEngine:
 
         for i, chunk in enumerate(relevant_chunks):
             context_parts.append(
-                f"[Source {i+1}: {chunk.source_type} / {chunk.source_id}]\n{chunk.content}"
+                f"[Source {i + 1}: {chunk.source_type} / {chunk.source_id}]\n{chunk.content}"
             )
             if include_sources:
                 sources.append(
@@ -441,4 +441,3 @@ class IntelliPipeRAGEngine:
             question, tenant_id=tenant_id, source_type="dbt_model"
         )
         return result["answer"]
-

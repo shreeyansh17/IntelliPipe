@@ -441,4 +441,3 @@ class SLATrend(Base, TimestampMixin):
     p95_latency_ms: Mapped[Optional[float]] = mapped_column(Float)
     anomaly_count: Mapped[int] = mapped_column(Integer, default=0)
     metrics: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
-

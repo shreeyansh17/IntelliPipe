@@ -430,5 +430,3 @@ class IncidentMemoryRepository(BaseRepository):
             .limit(top_k)
         )
         return list(result.scalars().all())
-
-
