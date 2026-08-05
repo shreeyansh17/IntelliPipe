@@ -309,7 +309,9 @@ class RemediationAction(Base, TimestampMixin):
     applied_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     approved_by: Mapped[Optional[str]] = mapped_column(String(256))
     execution_log: Mapped[Optional[str]] = mapped_column(Text)
-    metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+    extra_metadata: Mapped[Dict[str, Any]] = mapped_column(
+        "metadata", JSONB, default=dict
+    )
 
     incident: Mapped["Incident"] = relationship(back_populates="remediations")
 
@@ -372,7 +374,9 @@ class DocumentChunk(Base, TimestampMixin):
     embedding: Mapped[Optional[List[float]]] = mapped_column(
         Vector(1536)
     )  # OpenAI ada-002 dim
-    metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+    extra_metadata: Mapped[Dict[str, Any]] = mapped_column(
+        "metadata", JSONB, default=dict
+    )
     ingested_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
@@ -401,7 +405,9 @@ class IncidentMemory(Base, TimestampMixin):
     embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(1536))
     relevance_score: Mapped[Optional[float]] = mapped_column(Float)
     tags: Mapped[List[str]] = mapped_column(JSONB, default=list)
-    metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+    extra_metadata: Mapped[Dict[str, Any]] = mapped_column(
+        "metadata", JSONB, default=dict
+    )
 
 
 class SLATrend(Base, TimestampMixin):
@@ -435,3 +441,4 @@ class SLATrend(Base, TimestampMixin):
     p95_latency_ms: Mapped[Optional[float]] = mapped_column(Float)
     anomaly_count: Mapped[int] = mapped_column(Integer, default=0)
     metrics: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+

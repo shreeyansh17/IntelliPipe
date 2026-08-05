@@ -345,7 +345,7 @@ class DocumentChunkRepository(BaseRepository):
                 content=chunk["content"],
                 chunk_index=i,
                 embedding=chunk.get("embedding"),
-                metadata=chunk.get("metadata", {}),
+                extra_metadata=chunk.get("metadata", {}),
             )
             for i, chunk in enumerate(chunks)
         ]
@@ -405,7 +405,7 @@ class IncidentMemoryRepository(BaseRepository):
             embedding=embedding,
             summary=summary,
             tags=tags or [],
-            metadata=metadata or {},
+            extra_metadata=metadata or {},
         )
         self._session.add(memory)
         await self._session.flush()
@@ -430,3 +430,5 @@ class IncidentMemoryRepository(BaseRepository):
             .limit(top_k)
         )
         return list(result.scalars().all())
+
+

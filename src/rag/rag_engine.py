@@ -380,7 +380,7 @@ class IntelliPipeRAGEngine:
                         "source_type": chunk.source_type,
                         "source_id": chunk.source_id,
                         "content_preview": chunk.content[:200],
-                        "metadata": chunk.metadata,
+                        "metadata": chunk.extra_metadata,
                     }
                 )
 
@@ -441,3 +441,4 @@ class IntelliPipeRAGEngine:
             question, tenant_id=tenant_id, source_type="dbt_model"
         )
         return result["answer"]
+
