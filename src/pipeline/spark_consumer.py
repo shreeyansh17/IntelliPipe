@@ -18,7 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import redis
 from pyspark.sql import DataFrame, SparkSession
@@ -38,9 +38,9 @@ from src.core.config import get_settings
 from src.core.logging import get_logger
 from src.core.telemetry import (
     EVENTS_CONSUMED_TOTAL,
+    PIPELINE_BATCH_DURATION,
     SCHEMA_DRIFT_DETECTED_TOTAL,
     timed_operation,
-    PIPELINE_BATCH_DURATION,
 )
 
 logger = get_logger(__name__, component="spark_consumer")
@@ -161,7 +161,7 @@ class SchemaDriftDetector:
         self,
         batch_df: DataFrame,
         batch_id: int,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Compare batch schema to baseline. Returns drift event dict or None.
         Publishes to Redis alert queue if drift detected.
@@ -253,7 +253,7 @@ class BatchDQMetrics:
         tenant_id: str,
         table_name: str,
         batch_id: int,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Run all DQ checks and return dimension scores dict."""
         total = batch_df.count()
         if total == 0:
@@ -421,7 +421,7 @@ class OrderStreamingPipeline:
             .load()
         )
 
-    def _parse_events(self, raw_df: DataFrame) -> Tuple[DataFrame, DataFrame]:
+    def _parse_events(self, raw_df: DataFrame) -> tuple[DataFrame, DataFrame]:
         """
         Parse raw Kafka bytes into structured events.
         Returns (valid_df, dlq_df) tuple.

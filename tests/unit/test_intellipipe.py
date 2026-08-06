@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
@@ -106,7 +106,7 @@ def anomalous_order_batch() -> pd.DataFrame:
 
 
 @pytest.fixture
-def sample_alert() -> Dict[str, Any]:
+def sample_alert() -> dict[str, Any]:
     return {
         "alert_type": "null_spike",
         "tenant_id": "tenant_alpha",
@@ -119,7 +119,7 @@ def sample_alert() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def sample_rca() -> Dict[str, Any]:
+def sample_rca() -> dict[str, Any]:
     return {
         "root_cause": "Upstream order service deployed v2.3.1 at 14:00 UTC introducing a bug where customer_email is not populated for guest checkouts.",
         "confidence": 0.87,
@@ -164,12 +164,14 @@ class TestIsolationForestDetector:
 
     def test_score_returns_array_in_range(self, clean_order_batch: pd.DataFrame):
         """Scores must be in [0, 1] for all rows."""
-        from src.anomaly.ensemble import IsolationForestDetector
         from sklearn.preprocessing import StandardScaler
+
+        from src.anomaly.ensemble import IsolationForestDetector
 
         detector = IsolationForestDetector()
         # Manually set up model without MLflow
         from sklearn.ensemble import IsolationForest
+
         from src.anomaly.ensemble import extract_features
 
         X = extract_features(clean_order_batch)
@@ -319,7 +321,7 @@ class TestFeatureExtraction:
     """Tests for the extract_features function."""
 
     def test_output_shape(self, clean_order_batch: pd.DataFrame):
-        from src.anomaly.ensemble import extract_features, ORDER_NUMERIC_FEATURES
+        from src.anomaly.ensemble import ORDER_NUMERIC_FEATURES, extract_features
 
         features = extract_features(clean_order_batch)
         assert features.shape[0] == len(clean_order_batch)
@@ -603,7 +605,7 @@ class TestSchemaDriftDetection:
 class TestLLMPrompts:
     """Tests for LLM prompt construction and parsing."""
 
-    def test_jira_description_format(self, sample_alert: Dict, sample_rca: Dict):
+    def test_jira_description_format(self, sample_alert: dict, sample_rca: dict):
         from src.agents.langchain_agent import IntelliPipeOrchestrationAgent
 
         desc = IntelliPipeOrchestrationAgent._format_jira_description(
@@ -615,9 +617,10 @@ class TestLLMPrompts:
         assert "IntelliPipe" in desc
         assert sample_rca["root_cause"][:50] in desc
 
-    def test_rca_fallback_on_json_parse_error(self, sample_alert: Dict):
+    def test_rca_fallback_on_json_parse_error(self, sample_alert: dict):
         """RCA agent should handle non-JSON responses gracefully."""
         import asyncio
+
         from src.agents.langchain_agent import RootCauseAnalysisAgent
 
         mock_llm = AsyncMock()

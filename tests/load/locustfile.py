@@ -22,11 +22,10 @@ Production SLO targets:
 from __future__ import annotations
 
 import random
-from typing import Optional
 
 from locust import HttpUser, between, task
 
-ADMIN_TOKEN: Optional[str] = None  # Populated in on_start
+ADMIN_TOKEN: str | None = None  # Populated in on_start
 
 
 class IntelliPipeDashboardUser(HttpUser):

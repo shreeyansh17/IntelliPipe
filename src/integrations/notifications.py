@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
-from slack_sdk.web.async_client import AsyncWebClient
 from slack_sdk.errors import SlackApiError
+from slack_sdk.web.async_client import AsyncWebClient
 
 from src.core.config import get_settings
 from src.core.logging import get_logger
@@ -59,11 +59,11 @@ class SlackIncidentNotifier:
     async def post_incident_alert(
         self,
         incident_id: str,
-        alert: Dict[str, Any],
-        rca: Dict[str, Any],
-        pr_url: Optional[str] = None,
-        jira_key: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        alert: dict[str, Any],
+        rca: dict[str, Any],
+        pr_url: str | None = None,
+        jira_key: str | None = None,
+    ) -> dict[str, Any]:
         """Post a rich incident notification to the appropriate Slack channel."""
         severity = alert.get("severity", "medium")
         channel = (
@@ -125,11 +125,11 @@ class SlackIncidentNotifier:
     def _build_incident_blocks(
         self,
         incident_id: str,
-        alert: Dict[str, Any],
-        rca: Dict[str, Any],
-        pr_url: Optional[str],
-        jira_key: Optional[str],
-    ) -> List[Dict[str, Any]]:
+        alert: dict[str, Any],
+        rca: dict[str, Any],
+        pr_url: str | None,
+        jira_key: str | None,
+    ) -> list[dict[str, Any]]:
         """Construct Slack Block Kit payload."""
         severity = alert.get("severity", "medium")
         emoji = SEVERITY_EMOJI.get(severity, ":bell:")
@@ -138,7 +138,7 @@ class SlackIncidentNotifier:
         root_cause = rca.get("root_cause", "Analysis in progress...")[:300]
         blast_radius = ", ".join(rca.get("blast_radius", [])) or "None identified"
 
-        blocks: List[Dict[str, Any]] = [
+        blocks: list[dict[str, Any]] = [
             {
                 "type": "header",
                 "text": {
@@ -193,7 +193,7 @@ class SlackIncidentNotifier:
         ]
 
         # Action buttons
-        action_elements: List[Dict[str, Any]] = []
+        action_elements: list[dict[str, Any]] = []
 
         if pr_url:
             action_elements.append(
@@ -290,9 +290,9 @@ class JiraTicketClient:
         title: str,
         description: str,
         severity: str,
-        pr_url: Optional[str] = None,
-        affected_tables: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        pr_url: str | None = None,
+        affected_tables: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Create a Jira incident ticket and return key + URL."""
         priority = JIRA_SEVERITY_PRIORITY_MAP.get(severity, "Medium")
         labels = [

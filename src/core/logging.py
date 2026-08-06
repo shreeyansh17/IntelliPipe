@@ -15,7 +15,7 @@ import logging
 import sys
 import uuid
 from contextvars import ContextVar
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 from structlog.types import EventDict, WrappedLogger
@@ -211,11 +211,11 @@ class LogContext:
 
     def __init__(self, **kwargs: Any) -> None:
         self._context = kwargs
-        self._token: Optional[Any] = None
+        self._token: Any | None = None
 
-    def __enter__(self) -> "LogContext":
+    def __enter__(self) -> LogContext:
         structlog.contextvars.bind_contextvars(**self._context)
         return self
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(self, *args: object) -> None:
         structlog.contextvars.unbind_contextvars(*self._context.keys())

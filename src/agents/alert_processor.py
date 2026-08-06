@@ -17,25 +17,25 @@ import json
 import signal
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 import redis.asyncio as aioredis
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from src.agents.langchain_agent import IntelliPipeOrchestrationAgent
 from src.core.config import get_settings
-from src.core.logging import configure_logging, get_logger, LogContext
+from src.core.logging import LogContext, configure_logging, get_logger
 from src.core.telemetry import (
     INCIDENTS_CREATED_TOTAL,
-    timed_operation,
     PIPELINE_BATCH_DURATION,
+    timed_operation,
 )
+from src.db.models import AnomalyType, SeverityLevel
 from src.db.repositories.incident_repo import (
     DocumentChunkRepository,
     IncidentMemoryRepository,
     IncidentRepository,
 )
-from src.db.models import AnomalyType, SeverityLevel
 from src.integrations.github_client import GitHubPRClient
 from src.integrations.notifications import JiraTicketClient, SlackIncidentNotifier
 
@@ -61,7 +61,7 @@ class CircuitBreaker:
         self._failures = 0
         self._threshold = failure_threshold
         self._reset_timeout = reset_timeout_seconds
-        self._last_failure_time: Optional[float] = None
+        self._last_failure_time: float | None = None
         self._state = "CLOSED"
 
     @property
@@ -102,10 +102,10 @@ class AlertDeduplicator:
     """
 
     def __init__(self, window_minutes: int = 30) -> None:
-        self._seen: Dict[str, float] = {}
+        self._seen: dict[str, float] = {}
         self._window = window_minutes * 60
 
-    def is_duplicate(self, alert: Dict[str, Any]) -> bool:
+    def is_duplicate(self, alert: dict[str, Any]) -> bool:
         key = self._make_key(alert)
         now = time.time()
         if key in self._seen:
@@ -115,7 +115,7 @@ class AlertDeduplicator:
         self._seen[key] = now
         return False
 
-    def _make_key(self, alert: Dict[str, Any]) -> str:
+    def _make_key(self, alert: dict[str, Any]) -> str:
         return f"{alert.get('alert_type')}:{alert.get('table_name')}:{alert.get('tenant_id')}"
 
     def cleanup_expired(self) -> None:
@@ -150,7 +150,7 @@ ANOMALY_TYPE_MAP = {
 }
 
 
-def compute_severity(alert: Dict[str, Any]) -> SeverityLevel:
+def compute_severity(alert: dict[str, Any]) -> SeverityLevel:
     """
     Compute incident severity from alert signals.
     DQ score < 60 escalates to CRITICAL regardless of alert type.
@@ -189,8 +189,8 @@ class AlertProcessorWorker:
 
     def __init__(self) -> None:
         self._settings = settings
-        self._redis: Optional[aioredis.Redis] = None
-        self._session_factory: Optional[async_sessionmaker] = None
+        self._redis: aioredis.Redis | None = None
+        self._session_factory: async_sessionmaker | None = None
         self._circuit_breaker = CircuitBreaker(
             failure_threshold=5, reset_timeout_seconds=120
         )
@@ -300,7 +300,7 @@ class AlertProcessorWorker:
             "Alert processor shutdown complete", processed=self._processed_count
         )
 
-    async def _process_alert_safe(self, alert: Dict[str, Any]) -> None:
+    async def _process_alert_safe(self, alert: dict[str, Any]) -> None:
         """Process a single alert with concurrency control and error handling."""
         async with self._semaphore:
             with LogContext(
@@ -340,7 +340,7 @@ class AlertProcessorWorker:
                         ),
                     )
 
-    async def _process_alert(self, alert: Dict[str, Any]) -> None:
+    async def _process_alert(self, alert: dict[str, Any]) -> None:
         """
         Full alert → incident lifecycle:
         1. Persist incident to DB

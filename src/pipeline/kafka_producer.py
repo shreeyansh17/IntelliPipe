@@ -23,10 +23,11 @@ import json
 import random
 import time
 import uuid
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any
 
 from confluent_kafka import KafkaError, Producer
 from confluent_kafka.admin import AdminClient, NewTopic
@@ -83,7 +84,7 @@ class OrderEvent:
     customer_email: str
     order_status: str
     payment_method: str
-    items: List[Dict[str, Any]]
+    items: list[dict[str, Any]]
     subtotal: float
     tax_amount: float
     shipping_amount: float
@@ -116,8 +117,8 @@ class AnomalyInjector:
 
     @staticmethod
     def inject_null_spike(
-        event: Dict[str, Any], null_probability: float = 0.8
-    ) -> Dict[str, Any]:
+        event: dict[str, Any], null_probability: float = 0.8
+    ) -> dict[str, Any]:
         """Randomly null out key fields to simulate null spike."""
         nullable_fields = [
             "customer_email",
@@ -131,7 +132,7 @@ class AnomalyInjector:
         return event
 
     @staticmethod
-    def inject_schema_drift_add_column(event: Dict[str, Any]) -> Dict[str, Any]:
+    def inject_schema_drift_add_column(event: dict[str, Any]) -> dict[str, Any]:
         """Add unexpected columns — simulates upstream schema change."""
         event["promo_code"] = f"PROMO-{random.randint(1000, 9999)}"
         event["loyalty_points"] = random.randint(0, 5000)
@@ -142,14 +143,14 @@ class AnomalyInjector:
         return event
 
     @staticmethod
-    def inject_schema_drift_remove_column(event: Dict[str, Any]) -> Dict[str, Any]:
+    def inject_schema_drift_remove_column(event: dict[str, Any]) -> dict[str, Any]:
         """Remove expected columns — simulates upstream schema breaking change."""
         for col in ["shipping_amount", "tax_amount", "schema_version"]:
             event.pop(col, None)
         return event
 
     @staticmethod
-    def inject_schema_drift_rename_column(event: Dict[str, Any]) -> Dict[str, Any]:
+    def inject_schema_drift_rename_column(event: dict[str, Any]) -> dict[str, Any]:
         """Rename a column — simulates refactoring without backward compatibility."""
         if "customer_id" in event:
             event["user_id"] = event.pop("customer_id")
@@ -158,7 +159,7 @@ class AnomalyInjector:
         return event
 
     @staticmethod
-    def inject_statistical_outlier(event: Dict[str, Any]) -> Dict[str, Any]:
+    def inject_statistical_outlier(event: dict[str, Any]) -> dict[str, Any]:
         """Inject extreme values for numerical anomaly detection."""
         anomaly_choice = random.choice(["price", "quantity", "discount"])
         if anomaly_choice == "price":
@@ -173,7 +174,7 @@ class AnomalyInjector:
         return event
 
     @staticmethod
-    def inject_invalid_enum(event: Dict[str, Any]) -> Dict[str, Any]:
+    def inject_invalid_enum(event: dict[str, Any]) -> dict[str, Any]:
         """Inject invalid enum values."""
         invalid_statuses = ["PROCESSING", "UNKNOWN", "error", "null", "N/A", ""]
         invalid_payments = ["BARTER", "PROMISE", "IOU", None]
@@ -183,8 +184,8 @@ class AnomalyInjector:
 
     @staticmethod
     def inject_delayed_event(
-        event: Dict[str, Any], delay_hours: int = 48
-    ) -> Dict[str, Any]:
+        event: dict[str, Any], delay_hours: int = 48
+    ) -> dict[str, Any]:
         """Set event timestamp far in the past to simulate delayed/stale events."""
         stale_time = datetime.now(timezone.utc) - timedelta(
             hours=delay_hours + random.randint(0, 24)
@@ -194,7 +195,7 @@ class AnomalyInjector:
         return event
 
     @staticmethod
-    def inject_duplicate(event: Dict[str, Any]) -> Dict[str, Any]:
+    def inject_duplicate(event: dict[str, Any]) -> dict[str, Any]:
         """Keep same order_id but generate new event_id — simulates duplicate."""
         # event_id changes but business key (order_id) stays same
         event["event_id"] = str(uuid.uuid4())
@@ -235,9 +236,9 @@ TENANTS = ["tenant_alpha", "tenant_beta", "tenant_gamma"]
 
 
 def generate_order_event(
-    tenant_id: Optional[str] = None,
-    anomaly_type: Optional[str] = None,
-) -> Dict[str, Any]:
+    tenant_id: str | None = None,
+    anomaly_type: str | None = None,
+) -> dict[str, Any]:
     """
     Generate a realistic order event with optional anomaly injection.
 
@@ -345,7 +346,7 @@ class IntelliPipeProducer:
         )
 
     def _create_producer(self) -> Producer:
-        config: Dict[str, Any] = {
+        config: dict[str, Any] = {
             "bootstrap.servers": self._settings.bootstrap_servers,
             "acks": "all",
             "enable.idempotence": True,
@@ -386,7 +387,7 @@ class IntelliPipeProducer:
                 if "already exists" not in str(e).lower():
                     logger.warning("Topic creation warning", topic=topic, error=str(e))
 
-    def _delivery_callback(self, err: Optional[KafkaError], msg: Any) -> None:
+    def _delivery_callback(self, err: KafkaError | None, msg: Any) -> None:
         """Called per-message after broker acknowledgement."""
         if err:
             logger.error(
@@ -403,9 +404,9 @@ class IntelliPipeProducer:
 
     def produce(
         self,
-        event: Dict[str, Any],
-        topic: Optional[str] = None,
-        key: Optional[str] = None,
+        event: dict[str, Any],
+        topic: str | None = None,
+        key: str | None = None,
     ) -> None:
         """
         Produce a single event to Kafka.
@@ -438,7 +439,7 @@ class IntelliPipeProducer:
             self._producer.flush(timeout=5)
             self.produce(event, topic, key)
 
-    def produce_to_dlq(self, event: Dict[str, Any], reason: str) -> None:
+    def produce_to_dlq(self, event: dict[str, Any], reason: str) -> None:
         """Route a failed/invalid event to the dead-letter queue."""
         dlq_envelope = {
             "original_event": event,
@@ -487,21 +488,21 @@ class EventSimulator:
         self,
         producer: IntelliPipeProducer,
         events_per_second: int = 100,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> None:
         self._producer = producer
         self._eps = events_per_second
         self._tenant_id = tenant_id
         self._total_produced = 0
 
-    def _choose_anomaly(self) -> Optional[str]:
+    def _choose_anomaly(self) -> str | None:
         """Stochastically select an anomaly type for this event."""
         for anomaly_type, probability in self.ANOMALY_SCHEDULE:
             if random.random() < probability:
                 return anomaly_type
         return None
 
-    def generate_batch(self, batch_size: int = 100) -> Iterator[Dict[str, Any]]:
+    def generate_batch(self, batch_size: int = 100) -> Iterator[dict[str, Any]]:
         """Generate a batch of events with probabilistic anomalies."""
         for _ in range(batch_size):
             anomaly = self._choose_anomaly()
@@ -510,7 +511,7 @@ class EventSimulator:
                 anomaly_type=anomaly,
             )
 
-    def run_continuous(self, duration_seconds: Optional[int] = None) -> None:
+    def run_continuous(self, duration_seconds: int | None = None) -> None:
         """
         Run continuous event production at target EPS.
         Set duration_seconds=None for indefinite production.

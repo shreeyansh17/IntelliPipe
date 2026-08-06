@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from sqlalchemy import and_, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,8 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.logging import get_logger
 from src.db.models import (
     AnomalyType,
-    DQSnapshot,
     DocumentChunk,
+    DQSnapshot,
     Incident,
     IncidentMemory,
     IncidentStatus,
@@ -51,11 +51,11 @@ class IncidentRepository(BaseRepository):
         title: str,
         anomaly_type: AnomalyType,
         severity: SeverityLevel,
-        description: Optional[str] = None,
-        anomaly_score: Optional[float] = None,
-        affected_columns: Optional[List[str]] = None,
-        affected_row_count: Optional[int] = None,
-        detection_metadata: Optional[Dict[str, Any]] = None,
+        description: str | None = None,
+        anomaly_score: float | None = None,
+        affected_columns: list[str] | None = None,
+        affected_row_count: int | None = None,
+        detection_metadata: dict[str, Any] | None = None,
     ) -> Incident:
         """Create and persist a new incident."""
         incident = Incident(
@@ -80,7 +80,7 @@ class IncidentRepository(BaseRepository):
         )
         return incident
 
-    async def get_by_id(self, incident_id: uuid.UUID) -> Optional[Incident]:
+    async def get_by_id(self, incident_id: uuid.UUID) -> Incident | None:
         result = await self._session.execute(
             select(Incident).where(Incident.id == incident_id)
         )
@@ -91,8 +91,8 @@ class IncidentRepository(BaseRepository):
         tenant_id: str,
         limit: int = 50,
         offset: int = 0,
-        severity: Optional[SeverityLevel] = None,
-    ) -> Tuple[List[Incident], int]:
+        severity: SeverityLevel | None = None,
+    ) -> tuple[list[Incident], int]:
         """List open incidents with pagination and optional severity filter."""
         conditions = [
             Incident.tenant_id == tenant_id,
@@ -120,9 +120,9 @@ class IncidentRepository(BaseRepository):
         self,
         incident_id: uuid.UUID,
         root_cause_analysis: str,
-        fix_code: Optional[str],
+        fix_code: str | None,
         llm_model_used: str,
-    ) -> Optional[Incident]:
+    ) -> Incident | None:
         """Attach LLM-generated RCA and fix code to an incident."""
         await self._session.execute(
             update(Incident)
@@ -139,14 +139,14 @@ class IncidentRepository(BaseRepository):
     async def update_external_refs(
         self,
         incident_id: uuid.UUID,
-        github_pr_url: Optional[str] = None,
-        github_pr_number: Optional[int] = None,
-        jira_ticket_key: Optional[str] = None,
-        jira_ticket_url: Optional[str] = None,
-        slack_message_ts: Optional[str] = None,
+        github_pr_url: str | None = None,
+        github_pr_number: int | None = None,
+        jira_ticket_key: str | None = None,
+        jira_ticket_url: str | None = None,
+        slack_message_ts: str | None = None,
     ) -> None:
         """Update external system references (GitHub, Jira, Slack)."""
-        values: Dict[str, Any] = {}
+        values: dict[str, Any] = {}
         if github_pr_url:
             values["github_pr_url"] = github_pr_url
         if github_pr_number:
@@ -166,7 +166,7 @@ class IncidentRepository(BaseRepository):
         self,
         incident_id: uuid.UUID,
         resolved_by: str,
-        resolution_notes: Optional[str] = None,
+        resolution_notes: str | None = None,
     ) -> None:
         """Mark an incident as resolved."""
         await self._session.execute(
@@ -185,7 +185,7 @@ class IncidentRepository(BaseRepository):
         table_id: uuid.UUID,
         hours: int = 24,
         limit: int = 10,
-    ) -> List[Incident]:
+    ) -> list[Incident]:
         """Fetch recent incidents for a specific table (for context in RCA)."""
         since = datetime.now(timezone.utc) - timedelta(hours=hours)
         result = await self._session.execute(
@@ -224,7 +224,7 @@ class DQSnapshotRepository(BaseRepository):
         row_count: int = 0,
         failed_checks: int = 0,
         total_checks: int = 0,
-        ge_results: Optional[Dict[str, Any]] = None,
+        ge_results: dict[str, Any] | None = None,
     ) -> DQSnapshot:
         snapshot = DQSnapshot(
             table_id=table_id,
@@ -249,7 +249,7 @@ class DQSnapshotRepository(BaseRepository):
         self,
         table_id: uuid.UUID,
         tenant_id: str,
-    ) -> Optional[DQSnapshot]:
+    ) -> DQSnapshot | None:
         result = await self._session.execute(
             select(DQSnapshot)
             .where(
@@ -268,7 +268,7 @@ class DQSnapshotRepository(BaseRepository):
         table_id: uuid.UUID,
         tenant_id: str,
         hours: int = 168,  # 7 days
-    ) -> List[DQSnapshot]:
+    ) -> list[DQSnapshot]:
         since = datetime.now(timezone.utc) - timedelta(hours=hours)
         result = await self._session.execute(
             select(DQSnapshot)
@@ -283,7 +283,7 @@ class DQSnapshotRepository(BaseRepository):
         )
         return list(result.scalars().all())
 
-    async def get_all_latest(self, tenant_id: str) -> List[DQSnapshot]:
+    async def get_all_latest(self, tenant_id: str) -> list[DQSnapshot]:
         """Get the latest snapshot for every table in the tenant."""
         subq = (
             select(
@@ -319,7 +319,7 @@ class DocumentChunkRepository(BaseRepository):
         tenant_id: str,
         source_type: str,
         source_id: str,
-        chunks: List[Dict[str, Any]],
+        chunks: list[dict[str, Any]],
     ) -> int:
         """
         Upsert document chunks — delete existing for source, re-insert.
@@ -356,10 +356,10 @@ class DocumentChunkRepository(BaseRepository):
     async def vector_search(
         self,
         tenant_id: str,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int = 5,
-        source_type: Optional[str] = None,
-    ) -> List[DocumentChunk]:
+        source_type: str | None = None,
+    ) -> list[DocumentChunk]:
         """
         Approximate nearest-neighbour search using pgvector cosine similarity.
         Requires a vector index (IVFFlat or HNSW) on the embedding column.
@@ -389,13 +389,13 @@ class IncidentMemoryRepository(BaseRepository):
     async def store(
         self,
         tenant_id: str,
-        incident_id: Optional[uuid.UUID],
+        incident_id: uuid.UUID | None,
         memory_type: str,
         content: str,
-        embedding: Optional[List[float]],
-        summary: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        embedding: list[float] | None,
+        summary: str | None = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> IncidentMemory:
         memory = IncidentMemory(
             tenant_id=tenant_id,
@@ -414,10 +414,10 @@ class IncidentMemoryRepository(BaseRepository):
     async def search_similar(
         self,
         tenant_id: str,
-        query_embedding: List[float],
-        memory_type: Optional[str] = None,
+        query_embedding: list[float],
+        memory_type: str | None = None,
         top_k: int = 5,
-    ) -> List[IncidentMemory]:
+    ) -> list[IncidentMemory]:
         """Find similar past incidents/solutions via vector similarity."""
         conditions = [IncidentMemory.tenant_id == tenant_id]
         if memory_type:

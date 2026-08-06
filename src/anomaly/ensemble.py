@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import mlflow
 import mlflow.sklearn
@@ -51,10 +51,10 @@ class AnomalyResult:
     zscore_max: float  # Maximum Z-score across features
     severity: str  # critical / high / medium / low
     anomaly_type: str  # statistical / null_spike / outlier / etc.
-    affected_features: List[str]  # Top features driving the anomaly
-    feature_contributions: Dict[str, float]  # Feature → contribution score
+    affected_features: list[str]  # Top features driving the anomaly
+    feature_contributions: dict[str, float]  # Feature → contribution score
     explanation: str  # Human-readable explanation
-    model_versions: Dict[str, str] = field(default_factory=dict)
+    model_versions: dict[str, str] = field(default_factory=dict)
     detected_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
@@ -178,8 +178,8 @@ class IsolationForestDetector:
 
     def __init__(self) -> None:
         cfg = settings.anomaly
-        self._model: Optional[IsolationForest] = None
-        self._scaler: Optional[StandardScaler] = None
+        self._model: IsolationForest | None = None
+        self._scaler: StandardScaler | None = None
         self._version: str = "untrained"
         self._contamination = cfg.isolation_forest_contamination
         self._n_estimators = cfg.isolation_forest_n_estimators
@@ -260,7 +260,7 @@ class IsolationForestDetector:
         normalised = 1 - (raw_scores - min_s) / (max_s - min_s)
         return np.clip(normalised, 0, 1)
 
-    def feature_contributions(self, row: pd.Series) -> Dict[str, float]:
+    def feature_contributions(self, row: pd.Series) -> dict[str, float]:
         """Approximate per-feature contribution via perturbation analysis."""
         if self._model is None or self._scaler is None:
             return {}
@@ -301,13 +301,13 @@ class AutoencoderDetector:
         self._latent_dim = cfg.autoencoder_latent_dim
         self._epochs = cfg.autoencoder_epochs
         self._batch_size = cfg.autoencoder_batch_size
-        self._scaler: Optional[StandardScaler] = None
+        self._scaler: StandardScaler | None = None
         self._threshold: float = 0.0
         self._version: str = "untrained"
 
         try:
             import torch
-            import torch.nn as nn
+            from torch import nn
 
             self._torch_available = True
             self._torch = torch
@@ -447,8 +447,8 @@ class ZScoreDetector:
     MODEL_NAME = "zscore"
 
     def __init__(self) -> None:
-        self._medians: Dict[str, float] = {}
-        self._mads: Dict[str, float] = {}
+        self._medians: dict[str, float] = {}
+        self._mads: dict[str, float] = {}
         self._threshold = settings.anomaly.zscore_threshold
         self._version = "statistical"
 
@@ -482,7 +482,7 @@ class ZScoreDetector:
         normalised = np.clip(max_zscores / (self._threshold * 2), 0, 1)
         return normalised
 
-    def max_zscores_per_row(self, df: pd.DataFrame) -> Tuple[np.ndarray, List[str]]:
+    def max_zscores_per_row(self, df: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
         """Return max Z-scores and the feature name responsible."""
         X = extract_features(df)
         max_scores = np.zeros(len(X))
@@ -538,7 +538,7 @@ class EnsembleAnomalyScorer:
         df: pd.DataFrame,
         table_name: str = "orders",
         shadow_only: bool = False,
-    ) -> List[AnomalyResult]:
+    ) -> list[AnomalyResult]:
         """
         Score a batch of events. Returns one AnomalyResult per row.
 
@@ -625,7 +625,7 @@ class EnsembleAnomalyScorer:
         if_score: float,
         ae_score: float,
         zscore_max: float,
-        top_features: List[str],
+        top_features: list[str],
         responsible_feature: str,
     ) -> str:
         """Generate a human-readable anomaly explanation."""

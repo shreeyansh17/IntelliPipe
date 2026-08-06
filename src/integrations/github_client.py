@@ -17,7 +17,7 @@ from __future__ import annotations
 import base64
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any
 
 import httpx
 from pydantic import BaseModel
@@ -62,11 +62,11 @@ class GitHubPRClient:
     async def create_fix_pr(
         self,
         table_name: str,
-        fix_code: Dict[str, Any],
+        fix_code: dict[str, Any],
         incident_id: str,
         rca_summary: str,
         require_approval: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Full PR creation workflow:
         1. Get base branch SHA
@@ -179,9 +179,9 @@ class GitHubPRClient:
     def _prepare_files(
         self,
         table_name: str,
-        fix_code: Dict[str, Any],
+        fix_code: dict[str, Any],
         incident_id: str,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Build the dict of file_path → content to commit."""
         safe_table = re.sub(r"[^a-z0-9_]", "_", table_name.lower())
         files = {}
@@ -221,8 +221,8 @@ class GitHubPRClient:
         table_name: str,
         incident_id: str,
         rca_summary: str,
-        fix_code: Dict[str, Any],
-        files_changed: List[str],
+        fix_code: dict[str, Any],
+        files_changed: list[str],
         require_approval: bool,
     ) -> str:
         """Build a structured PR description markdown."""
@@ -292,7 +292,7 @@ Autonomous Data Quality Platform — Incident `{incident_id[:8]}`*"""
     ) -> str:
         """Commit a file, creating or updating it. Returns new commit SHA."""
         encoded = base64.b64encode(content.encode()).decode()
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "message": message,
             "content": encoded,
             "branch": branch,
@@ -321,7 +321,7 @@ Autonomous Data Quality Platform — Incident `{incident_id[:8]}`*"""
         head: str,
         base: str,
         draft: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         resp = await self._client.post(
             f"/repos/{org}/{repo}/pulls",
             json={
@@ -337,7 +337,7 @@ Autonomous Data Quality Platform — Incident `{incident_id[:8]}`*"""
         return resp.json()
 
     async def _request_reviewers(
-        self, org: str, repo: str, pr_number: int, reviewers: List[str]
+        self, org: str, repo: str, pr_number: int, reviewers: list[str]
     ) -> None:
         resp = await self._client.post(
             f"/repos/{org}/{repo}/pulls/{pr_number}/requested_reviewers",
@@ -347,7 +347,7 @@ Autonomous Data Quality Platform — Incident `{incident_id[:8]}`*"""
             logger.warning("Failed to add reviewers", status=resp.status_code)
 
     async def _add_labels(
-        self, org: str, repo: str, pr_number: int, labels: List[str]
+        self, org: str, repo: str, pr_number: int, labels: list[str]
     ) -> None:
         resp = await self._client.post(
             f"/repos/{org}/{repo}/issues/{pr_number}/labels",
@@ -356,7 +356,7 @@ Autonomous Data Quality Platform — Incident `{incident_id[:8]}`*"""
         if resp.status_code not in (200, 201):
             logger.warning("Failed to add labels", status=resp.status_code)
 
-    async def get_pr_status(self, pr_number: int) -> Dict[str, Any]:
+    async def get_pr_status(self, pr_number: int) -> dict[str, Any]:
         """Poll PR status — used by the human approval workflow."""
         resp = await self._client.get(
             f"/repos/{self._cfg.org}/{self._cfg.repo}/pulls/{pr_number}"

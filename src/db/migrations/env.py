@@ -1,7 +1,8 @@
 from alembic import context
 from sqlalchemy import engine_from_config, pool
-from src.db.models import Base
+
 from src.core.config import get_settings
+from src.db.models import Base
 
 settings = get_settings()
 config = context.config

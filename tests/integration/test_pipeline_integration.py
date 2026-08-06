@@ -10,17 +10,17 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
 import redis.asyncio as aioredis
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.core.config import get_settings
-from src.db.models import Base, AnomalyType, SeverityLevel
+from src.db.models import AnomalyType, Base, SeverityLevel
 
 settings = get_settings()
 
@@ -64,7 +64,7 @@ async def redis_client():
 
 
 @pytest.fixture
-def sample_alert() -> Dict[str, Any]:
+def sample_alert() -> dict[str, Any]:
     return {
         "alert_type": "null_spike",
         "tenant_id": "test_tenant",
@@ -93,7 +93,7 @@ class TestRedisAlertQueue:
     async def test_alert_enqueue_and_dequeue(
         self,
         redis_client: aioredis.Redis,
-        sample_alert: Dict[str, Any],
+        sample_alert: dict[str, Any],
     ) -> None:
         """Alert pushed to queue should be retrievable."""
         test_key = "intellipipe:test:alerts"
@@ -386,7 +386,7 @@ class TestAPIIntegration:
 class TestAlertDeduplicator:
     """Integration tests for the alert deduplication logic."""
 
-    def test_same_alert_deduplicated(self, sample_alert: Dict[str, Any]) -> None:
+    def test_same_alert_deduplicated(self, sample_alert: dict[str, Any]) -> None:
         from src.agents.alert_processor import AlertDeduplicator
 
         dedup = AlertDeduplicator(window_minutes=30)
@@ -395,7 +395,7 @@ class TestAlertDeduplicator:
         assert dedup.is_duplicate(sample_alert)  # Second call → duplicate
 
     def test_different_alerts_not_deduplicated(
-        self, sample_alert: Dict[str, Any]
+        self, sample_alert: dict[str, Any]
     ) -> None:
         from src.agents.alert_processor import AlertDeduplicator
 
@@ -409,7 +409,7 @@ class TestAlertDeduplicator:
         assert not dedup.is_duplicate(sample_alert)
         assert not dedup.is_duplicate(alert_2)  # Different key → not a duplicate
 
-    def test_severity_computation(self, sample_alert: Dict[str, Any]) -> None:
+    def test_severity_computation(self, sample_alert: dict[str, Any]) -> None:
         from src.agents.alert_processor import compute_severity
 
         high_score_alert = {**sample_alert, "severity": "low", "dq_score": 45.0}

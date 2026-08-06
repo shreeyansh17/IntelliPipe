@@ -15,12 +15,12 @@ import json
 import sys
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-import great_expectations as gx
 import pandas as pd
 import redis
 
+import great_expectations as gx
 from src.core.config import get_settings
 from src.core.logging import get_logger
 from src.core.telemetry import DQ_CHECKS_TOTAL, DQ_SCORE_GAUGE, DQ_VIOLATIONS_TOTAL
@@ -72,8 +72,8 @@ DIMENSION_WEIGHTS = {
 
 
 def compute_dimension_scores(
-    results: List[Dict[str, Any]],
-) -> Dict[str, float]:
+    results: list[dict[str, Any]],
+) -> dict[str, float]:
     """
     Compute per-dimension DQ scores from GE expectation results.
 
@@ -83,7 +83,7 @@ def compute_dimension_scores(
     Returns:
         Dict with dimension names mapped to 0-100 scores.
     """
-    dimension_counts: Dict[str, Dict[str, int]] = {
+    dimension_counts: dict[str, dict[str, int]] = {
         dim: {"pass": 0, "fail": 0} for dim in DIMENSION_EXPECTATIONS
     }
 
@@ -99,7 +99,7 @@ def compute_dimension_scores(
                     dimension_counts[dimension]["fail"] += 1
                 break
 
-    scores: Dict[str, float] = {}
+    scores: dict[str, float] = {}
     for dimension, counts in dimension_counts.items():
         total = counts["pass"] + counts["fail"]
         scores[dimension] = (
@@ -149,8 +149,8 @@ class GEValidationRunner:
         suite_name: str,
         table_name: str,
         tenant_id: str,
-        batch_id: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        batch_id: int | None = None,
+    ) -> dict[str, Any]:
         """
         Execute a named GE suite against a Pandas DataFrame.
 
@@ -270,9 +270,9 @@ class GEValidationRunner:
         self,
         table_name: str,
         tenant_id: str,
-        scores: Dict[str, float],
-        failed_checks: List[Dict[str, Any]],
-        batch_id: Optional[int],
+        scores: dict[str, float],
+        failed_checks: list[dict[str, Any]],
+        batch_id: int | None,
     ) -> None:
         """Push GE failure alert to Redis for LLM agent processing."""
         # Determine worst failing dimension
@@ -320,8 +320,8 @@ class GEValidationRunner:
         df: pd.DataFrame,
         suite_name: str,
         table_name: str,
-        error: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        error: str | None = None,
+    ) -> dict[str, Any]:
         """Return stub results when GE context is unavailable."""
         return {
             "scores": {

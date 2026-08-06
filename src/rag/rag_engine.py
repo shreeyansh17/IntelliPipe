@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import anthropic
 from llama_index.core import (
@@ -62,7 +62,7 @@ class DBTDocumentLoader:
     def __init__(self, dbt_project_path: str) -> None:
         self._path = Path(dbt_project_path)
 
-    def load_manifest(self) -> List[Document]:
+    def load_manifest(self) -> list[Document]:
         """Parse dbt manifest.json and create documents per model."""
         manifest_path = self._path / "target" / "manifest.json"
         if not manifest_path.exists():
@@ -139,7 +139,7 @@ class DBTDocumentLoader:
         logger.info("Loaded dbt manifest documents", count=len(documents))
         return documents
 
-    def load_lineage(self) -> List[Document]:
+    def load_lineage(self) -> list[Document]:
         """
         Build lineage documentation from manifest DAG relationships.
         Creates one document per model describing its lineage context.
@@ -214,7 +214,7 @@ class AnthropicEmbeddingAdapter:
             api_key=settings.llm.anthropic_api_key.get_secret_value()
         )
 
-    def get_text_embedding(self, text: str) -> List[float]:
+    def get_text_embedding(self, text: str) -> list[float]:
         """Generate embedding for a single text string."""
         # Anthropic doesn't have a standalone embeddings API yet;
         # use a compact Claude call to generate a conceptual embedding
@@ -230,7 +230,7 @@ class AnthropicEmbeddingAdapter:
             logger.warning("voyageai not available, using zero vector embedding")
             return [0.0] * self.EMBEDDING_DIM
 
-    def get_text_embeddings(self, texts: List[str]) -> List[List[float]]:
+    def get_text_embeddings(self, texts: list[str]) -> list[list[float]]:
         """Batch embedding generation."""
         return [self.get_text_embedding(t) for t in texts]
 
@@ -265,13 +265,13 @@ class IntelliPipeRAGEngine:
         self,
         dbt_project_path: str,
         tenant_id: str,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """
         Full ingestion pipeline for a dbt project.
         Returns dict with counts of ingested documents per type.
         """
         loader = DBTDocumentLoader(dbt_project_path)
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
 
         # Load model docs
         model_docs = loader.load_manifest()
@@ -290,7 +290,7 @@ class IntelliPipeRAGEngine:
 
     async def _ingest_documents(
         self,
-        documents: List[Document],
+        documents: list[Document],
         tenant_id: str,
         source_type: str,
     ) -> int:
@@ -327,10 +327,10 @@ class IntelliPipeRAGEngine:
         self,
         question: str,
         tenant_id: str,
-        source_type: Optional[str] = None,
+        source_type: str | None = None,
         top_k: int = 5,
         include_sources: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Answer a natural language question using RAG.
 

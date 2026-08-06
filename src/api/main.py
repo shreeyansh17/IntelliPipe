@@ -16,9 +16,10 @@ import asyncio
 import json
 import time
 import uuid
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any
 
 import redis.asyncio as aioredis
 from fastapi import (
@@ -85,12 +86,12 @@ class IncidentResponse(BaseModel):
     anomaly_type: str
     status: str
     table_name: str
-    anomaly_score: Optional[float]
-    root_cause_analysis: Optional[str]
-    github_pr_url: Optional[str]
-    jira_ticket_key: Optional[str]
+    anomaly_score: float | None
+    root_cause_analysis: str | None
+    github_pr_url: str | None
+    jira_ticket_key: str | None
     created_at: str
-    resolved_at: Optional[str]
+    resolved_at: str | None
 
 
 class DQScoreResponse(BaseModel):
@@ -107,7 +108,7 @@ class DQScoreResponse(BaseModel):
 
 
 class IncidentListResponse(BaseModel):
-    incidents: List[IncidentResponse]
+    incidents: list[IncidentResponse]
     total: int
     page: int
     page_size: int
@@ -115,13 +116,13 @@ class IncidentListResponse(BaseModel):
 
 class RAGQueryRequest(BaseModel):
     question: str = Field(..., min_length=5, max_length=1000)
-    source_type: Optional[str] = None
+    source_type: str | None = None
     top_k: int = Field(default=5, ge=1, le=20)
 
 
 class RAGQueryResponse(BaseModel):
     answer: str
-    sources: List[Dict[str, Any]]
+    sources: list[dict[str, Any]]
     confidence: float
     chunks_retrieved: int
 
@@ -130,7 +131,7 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     timestamp: str
-    checks: Dict[str, str]
+    checks: dict[str, str]
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +239,7 @@ ALGORITHM = "HS256"
 SECRET_KEY = settings.api.secret_key.get_secret_value()
 
 # Dummy user store — replace with real user repo in production
-_USERS: Dict[str, Dict[str, Any]] = {
+_USERS: dict[str, dict[str, Any]] = {
     "admin": {"password": "intellipipe-admin", "tenant_id": "default", "role": "admin"},
     "viewer": {
         "password": "intellipipe-view",
@@ -248,7 +249,7 @@ _USERS: Dict[str, Dict[str, Any]] = {
 }
 
 
-def create_access_token(data: Dict[str, Any], expires_minutes: int) -> str:
+def create_access_token(data: dict[str, Any], expires_minutes: int) -> str:
     payload = {
         **data,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=expires_minutes),
@@ -258,7 +259,7 @@ def create_access_token(data: Dict[str, Any], expires_minutes: int) -> str:
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     try:
         payload = jwt.decode(
             credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM]
@@ -275,7 +276,7 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
 
-def require_admin(user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+def require_admin(user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
     if user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
@@ -307,7 +308,7 @@ async def login(req: TokenRequest) -> TokenResponse:
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check(request: Request) -> HealthResponse:
-    checks: Dict[str, str] = {}
+    checks: dict[str, str] = {}
 
     # Redis check
     try:
@@ -327,7 +328,7 @@ async def health_check(request: Request) -> HealthResponse:
 
 
 @app.get("/ready", tags=["System"])
-async def readiness_probe() -> Dict[str, str]:
+async def readiness_probe() -> dict[str, str]:
     return {"status": "ready"}
 
 
@@ -337,13 +338,13 @@ async def readiness_probe() -> Dict[str, str]:
 
 
 @app.get(
-    "/api/v1/dq/scores", response_model=List[DQScoreResponse], tags=["Data Quality"]
+    "/api/v1/dq/scores", response_model=list[DQScoreResponse], tags=["Data Quality"]
 )
 @limiter.limit("200/minute")
 async def get_all_dq_scores(
     request: Request,
-    user: Dict[str, Any] = Depends(get_current_user),
-) -> List[DQScoreResponse]:
+    user: dict[str, Any] = Depends(get_current_user),
+) -> list[DQScoreResponse]:
     """Get latest DQ scores for all tables in the tenant."""
     redis_client = request.app.state.redis
     tenant_id = user["tenant_id"]
@@ -382,7 +383,7 @@ async def get_all_dq_scores(
 async def get_dq_score(
     table_name: str,
     request: Request,
-    user: Dict[str, Any] = Depends(get_current_user),
+    user: dict[str, Any] = Depends(get_current_user),
 ) -> DQScoreResponse:
     """Get latest DQ score for a specific table."""
     redis_client = request.app.state.redis
@@ -412,8 +413,8 @@ async def list_incidents(
     request: Request,
     page: int = 1,
     page_size: int = 20,
-    severity: Optional[str] = None,
-    user: Dict[str, Any] = Depends(get_current_user),
+    severity: str | None = None,
+    user: dict[str, Any] = Depends(get_current_user),
 ) -> IncidentListResponse:
     """List incidents for the tenant with pagination."""
     # In production: query IncidentRepository
@@ -433,7 +434,7 @@ async def list_incidents(
 )
 async def get_incident(
     incident_id: str,
-    user: Dict[str, Any] = Depends(get_current_user),
+    user: dict[str, Any] = Depends(get_current_user),
 ) -> IncidentResponse:
     """Get full incident details by ID."""
     raise HTTPException(status_code=404, detail="Incident not found")
@@ -442,9 +443,9 @@ async def get_incident(
 @app.post("/api/v1/incidents/{incident_id}/resolve", tags=["Incidents"])
 async def resolve_incident(
     incident_id: str,
-    resolution_notes: Optional[str] = None,
-    user: Dict[str, Any] = Depends(get_current_user),
-) -> Dict[str, str]:
+    resolution_notes: str | None = None,
+    user: dict[str, Any] = Depends(get_current_user),
+) -> dict[str, str]:
     """Mark an incident as resolved."""
     logger.info(
         "Incident resolved", incident_id=incident_id, resolved_by=user["username"]
@@ -462,7 +463,7 @@ async def resolve_incident(
 async def query_docs(
     request: Request,
     body: RAGQueryRequest,
-    user: Dict[str, Any] = Depends(get_current_user),
+    user: dict[str, Any] = Depends(get_current_user),
 ) -> RAGQueryResponse:
     """Natural language query over dbt docs, lineage, and data contracts."""
     logger.info(
@@ -488,8 +489,8 @@ async def simulate_alert(
     alert_type: str = "null_spike",
     table_name: str = "raw_orders",
     severity: str = "high",
-    user: Dict[str, Any] = Depends(require_admin),
-) -> Dict[str, Any]:
+    user: dict[str, Any] = Depends(require_admin),
+) -> dict[str, Any]:
     """Inject a synthetic alert into the Redis queue (admin only)."""
     alert = {
         "alert_type": alert_type,
@@ -514,7 +515,7 @@ class ConnectionManager:
     """Manages WebSocket connections for real-time broadcasting."""
 
     def __init__(self) -> None:
-        self._active: Dict[str, List[WebSocket]] = {}  # tenant_id → connections
+        self._active: dict[str, list[WebSocket]] = {}  # tenant_id → connections
 
     async def connect(self, ws: WebSocket, tenant_id: str) -> None:
         await ws.accept()
@@ -537,7 +538,7 @@ class ConnectionManager:
             except ValueError:
                 pass
 
-    async def broadcast(self, tenant_id: str, message: Dict[str, Any]) -> None:
+    async def broadcast(self, tenant_id: str, message: dict[str, Any]) -> None:
         dead = []
         for ws in self._active.get(tenant_id, []):
             try:

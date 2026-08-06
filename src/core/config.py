@@ -8,7 +8,7 @@ Follows 12-factor app principles with full validation and secret masking.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import AnyHttpUrl, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -32,9 +32,9 @@ class KafkaSettings(BaseSettings):
     max_poll_records: int = Field(default=500)
     session_timeout_ms: int = Field(default=30000)
     security_protocol: str = Field(default="PLAINTEXT")
-    sasl_mechanism: Optional[str] = Field(default=None)
-    sasl_username: Optional[SecretStr] = Field(default=None)
-    sasl_password: Optional[SecretStr] = Field(default=None)
+    sasl_mechanism: str | None = Field(default=None)
+    sasl_username: SecretStr | None = Field(default=None)
+    sasl_password: SecretStr | None = Field(default=None)
 
 
 class DatabaseSettings(BaseSettings):
@@ -76,7 +76,7 @@ class RedisSettings(BaseSettings):
     host: str = Field(default="localhost")
     port: int = Field(default=6379)
     db: int = Field(default=0)
-    password: Optional[SecretStr] = Field(default=None)
+    password: SecretStr | None = Field(default=None)
     max_connections: int = Field(default=50)
     alert_queue_key: str = Field(default="intellipipe:alerts")
     dq_scores_key: str = Field(default="intellipipe:dq_scores")
@@ -110,7 +110,7 @@ class MLflowSettings(BaseSettings):
 
     tracking_uri: str = Field(default="http://localhost:5000")
     experiment_name: str = Field(default="intellipipe-anomaly-detection")
-    model_registry_uri: Optional[str] = Field(default=None)
+    model_registry_uri: str | None = Field(default=None)
     artifact_root: str = Field(default="s3://intellipipe-mlflow-artifacts")
 
 
@@ -137,13 +137,13 @@ class GitHubSettings(BaseSettings):
     org: str = Field(default="intellipipe-org")
     repo: str = Field(default="data-platform")
     base_branch: str = Field(default="main")
-    pr_reviewers: List[str] = Field(default_factory=list)
+    pr_reviewers: list[str] = Field(default_factory=list)
     require_approval: bool = Field(default=True)
     auto_merge_on_approval: bool = Field(default=False)
 
     @field_validator("pr_reviewers", mode="before")
     @classmethod
-    def parse_reviewers(cls, v: Any) -> List[str]:
+    def parse_reviewers(cls, v: Any) -> list[str]:
         if isinstance(v, str):
             return [r.strip() for r in v.split(",") if r.strip()]
         return v
@@ -169,7 +169,7 @@ class SlackSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="SLACK_")
 
     bot_token: SecretStr = Field(description="Slack bot OAuth token")
-    webhook_url: Optional[SecretStr] = Field(default=None)
+    webhook_url: SecretStr | None = Field(default=None)
     incident_channel: str = Field(default="#data-incidents")
     low_severity_channel: str = Field(default="#data-quality-alerts")
     emoji_critical: str = Field(default=":rotating_light:")
@@ -235,7 +235,7 @@ class APISettings(BaseSettings):
     reload: bool = Field(default=False)
     secret_key: SecretStr = Field(description="JWT signing secret key")
     access_token_expire_minutes: int = Field(default=60)
-    cors_origins: List[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
     rate_limit_requests: int = Field(default=1000)
     rate_limit_window_seconds: int = Field(default=60)
 
@@ -285,7 +285,7 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         return self.environment.lower() == "development"
 
-    def safe_dict(self) -> Dict[str, Any]:
+    def safe_dict(self) -> dict[str, Any]:
         """Return config dict with secrets masked for logging."""
         data = self.model_dump()
 

@@ -10,10 +10,11 @@ Centralised telemetry bootstrap:
 
 from __future__ import annotations
 
-import time
 import functools
+import time
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, Generator, Optional, TypeVar, cast
+from typing import Any, TypeVar, cast
 
 from opentelemetry import metrics as otel_metrics
 from opentelemetry import trace
@@ -271,8 +272,8 @@ def get_tracer(name: str) -> trace.Tracer:
 
 
 def traced(
-    operation_name: Optional[str] = None,
-    attributes: Optional[Dict[str, str]] = None,
+    operation_name: str | None = None,
+    attributes: dict[str, str] | None = None,
 ) -> Callable[[F], F]:
     """
     Decorator to trace a function with OpenTelemetry.
@@ -328,7 +329,7 @@ def traced(
 
 @contextmanager
 def timed_operation(
-    metric: Histogram, labels: Dict[str, str]
+    metric: Histogram, labels: dict[str, str]
 ) -> Generator[None, None, None]:
     """
     Context manager to record operation duration in a Prometheus Histogram.

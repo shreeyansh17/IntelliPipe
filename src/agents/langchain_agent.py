@@ -26,7 +26,7 @@ import json
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import anthropic
 from pydantic import BaseModel, Field
@@ -121,7 +121,7 @@ class GenerateDBTFixInput(BaseModel):
     incident_summary: str = Field(description="Summary of the incident and root cause")
     table_name: str = Field(description="Affected dbt model/table name")
     anomaly_type: str = Field(description="Type of anomaly to fix")
-    affected_columns: List[str] = Field(description="List of affected column names")
+    affected_columns: list[str] = Field(description="List of affected column names")
 
 
 # ---------------------------------------------------------------------------
@@ -150,14 +150,14 @@ class InstrumentedAnthropicLLM:
         system_prompt: str,
         user_message: str,
         operation: str = "completion",
-        max_tokens: Optional[int] = None,
-    ) -> Tuple[str, Dict[str, int]]:
+        max_tokens: int | None = None,
+    ) -> tuple[str, dict[str, int]]:
         """
         Single completion call with retry and metrics.
         Returns (text_response, token_usage_dict).
         """
         max_tok = max_tokens or settings.llm.max_tokens
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(self._max_retries):
             start_time = time.time()
@@ -248,11 +248,11 @@ class RootCauseAnalysisAgent:
 
     async def analyse(
         self,
-        alert: Dict[str, Any],
-        table_metadata: Optional[Dict[str, Any]] = None,
-        similar_incidents: Optional[List[Dict[str, Any]]] = None,
-        recent_incidents: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        alert: dict[str, Any],
+        table_metadata: dict[str, Any] | None = None,
+        similar_incidents: list[dict[str, Any]] | None = None,
+        recent_incidents: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """
         Perform root-cause analysis for an anomaly alert.
 
@@ -315,8 +315,7 @@ class RootCauseAnalysisAgent:
             clean_text = response_text.strip()
             if clean_text.startswith("```"):
                 clean_text = clean_text.split("```")[1]
-                if clean_text.startswith("json"):
-                    clean_text = clean_text[4:]
+                clean_text = clean_text.removeprefix("json")
             rca = json.loads(clean_text)
         except json.JSONDecodeError:
             logger.warning(
@@ -355,10 +354,10 @@ class FixCodeGenerator:
 
     async def generate(
         self,
-        rca: Dict[str, Any],
-        alert: Dict[str, Any],
-        dbt_model_context: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        rca: dict[str, Any],
+        alert: dict[str, Any],
+        dbt_model_context: str | None = None,
+    ) -> dict[str, Any]:
         """
         Generate dbt fix code based on RCA findings.
 
@@ -410,8 +409,7 @@ class FixCodeGenerator:
             clean_text = response_text.strip()
             if clean_text.startswith("```"):
                 clean_text = "\n".join(clean_text.split("\n")[1:])
-                if clean_text.endswith("```"):
-                    clean_text = clean_text[:-3]
+                clean_text = clean_text.removesuffix("```")
             fix = json.loads(clean_text)
         except json.JSONDecodeError:
             # Fallback: return raw response as dbt_model_sql
@@ -441,9 +439,9 @@ class PostmortemGenerator:
 
     async def generate(
         self,
-        incident: Dict[str, Any],
-        rca: Dict[str, Any],
-        timeline: List[Dict[str, Any]],
+        incident: dict[str, Any],
+        rca: dict[str, Any],
+        timeline: list[dict[str, Any]],
     ) -> str:
         """Generate a structured Markdown postmortem document."""
         user_message = (
@@ -495,9 +493,9 @@ class IntelliPipeOrchestrationAgent:
 
     async def handle_alert(
         self,
-        alert: Dict[str, Any],
+        alert: dict[str, Any],
         tenant_id: str = "default",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Full incident handling pipeline.
         Returns dict with incident_id and all external references.
@@ -601,9 +599,9 @@ class IntelliPipeOrchestrationAgent:
 
     async def _retrieve_similar_incidents(
         self,
-        alert: Dict[str, Any],
+        alert: dict[str, Any],
         tenant_id: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Retrieve similar past incidents using vector similarity search."""
         try:
             # Create a text embedding query from the alert
@@ -619,7 +617,7 @@ class IntelliPipeOrchestrationAgent:
             logger.warning("Failed to retrieve similar incidents", error=str(e))
             return []
 
-    async def _retrieve_dbt_context(self, alert: Dict[str, Any]) -> Optional[str]:
+    async def _retrieve_dbt_context(self, alert: dict[str, Any]) -> str | None:
         """Retrieve relevant dbt model SQL from the RAG system."""
         try:
             # table_name = alert.get("table_name", "")
@@ -633,9 +631,9 @@ class IntelliPipeOrchestrationAgent:
         self,
         tenant_id: str,
         incident_id: str,
-        alert: Dict[str, Any],
-        rca: Dict[str, Any],
-        fix: Dict[str, Any],
+        alert: dict[str, Any],
+        rca: dict[str, Any],
+        fix: dict[str, Any],
     ) -> None:
         """Persist incident knowledge to vector memory for future retrieval."""
         memory_content = json.dumps(
@@ -667,7 +665,7 @@ class IntelliPipeOrchestrationAgent:
             logger.error("Failed to store incident memory", error=str(e))
 
     @staticmethod
-    def _format_jira_description(alert: Dict[str, Any], rca: Dict[str, Any]) -> str:
+    def _format_jira_description(alert: dict[str, Any], rca: dict[str, Any]) -> str:
         """Format a Jira ticket description with all relevant context."""
         return f"""h2. Incident Summary
 *Alert Type:* {alert.get("alert_type")}
