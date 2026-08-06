@@ -184,7 +184,6 @@ jobs:
           DB_USER: intellipipe
           DB_PASSWORD: intellipipe
           DB_NAME: intellipipe
-          LLM_ANTHROPIC_API_KEY: dummy_key_for_ci
           REDIS_HOST: localhost
           LLM_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_TEST || 'dummy-key' }}
           API_SECRET_KEY: test-secret-key
