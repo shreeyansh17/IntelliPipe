@@ -371,34 +371,34 @@ class TestEventGenerator:
 
         events = [generate_order_event(anomaly_type="null_spike") for _ in range(20)]
         null_count = sum(1 for e in events if e.get("customer_email") is None)
-        assert null_count > 10, (
-            "null_spike should produce many null customer_email values"
-        )
+        assert (
+            null_count > 10
+        ), "null_spike should produce many null customer_email values"
 
     def test_schema_add_injects_extra_columns(self):
         from src.pipeline.kafka_producer import generate_order_event
 
         event = generate_order_event(anomaly_type="schema_add")
-        assert "promo_code" in event or "loyalty_points" in event, (
-            "schema_add should add promo_code or loyalty_points"
-        )
+        assert (
+            "promo_code" in event or "loyalty_points" in event
+        ), "schema_add should add promo_code or loyalty_points"
 
     def test_schema_remove_drops_columns(self):
         from src.pipeline.kafka_producer import generate_order_event
 
         event = generate_order_event(anomaly_type="schema_remove")
-        assert "shipping_amount" not in event, (
-            "schema_remove should drop shipping_amount"
-        )
+        assert (
+            "shipping_amount" not in event
+        ), "schema_remove should drop shipping_amount"
 
     def test_outlier_injection_extreme_values(self):
         from src.pipeline.kafka_producer import generate_order_event
 
         events = [generate_order_event(anomaly_type="outlier") for _ in range(20)]
         extreme = [e for e in events if e.get("total_amount", 0) > 10000]
-        assert len(extreme) > 5, (
-            "outlier should produce some extreme total_amount values"
-        )
+        assert (
+            len(extreme) > 5
+        ), "outlier should produce some extreme total_amount values"
 
     def test_invalid_enum_injection(self):
         from src.pipeline.kafka_producer import generate_order_event

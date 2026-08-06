@@ -43,7 +43,6 @@ class Base(DeclarativeBase):
     """SQLAlchemy declarative base with common audit columns."""
 
 
-
 class TimestampMixin:
     """Mixin for created_at / updated_at audit columns."""
 
@@ -150,9 +149,7 @@ class PipelineTable(Base, TimestampMixin, SoftDeleteMixin):
     # Relationships
     incidents: Mapped[list[Incident]] = relationship(back_populates="table")
     dq_snapshots: Mapped[list[DQSnapshot]] = relationship(back_populates="table")
-    schema_versions: Mapped[list[SchemaVersion]] = relationship(
-        back_populates="table"
-    )
+    schema_versions: Mapped[list[SchemaVersion]] = relationship(back_populates="table")
 
 
 class SchemaVersion(Base, TimestampMixin):
