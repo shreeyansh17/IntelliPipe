@@ -170,6 +170,10 @@ jobs:
           DB_PASSWORD: intellipipe
           DB_NAME: intellipipe
           LLM_ANTHROPIC_API_KEY: dummy_key_for_ci
+          GITHUB_TOKEN: dummy_token_for_ci
+          JIRA_API_TOKEN: dummy_token_for_ci
+          SLACK_BOT_TOKEN: dummy_token_for_ci
+          API_SECRET_KEY: dummy_secret_for_ci
 
       - name: Run integration tests
         run: |
