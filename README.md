@@ -313,3 +313,5 @@ kubectl logs -l app=intellipipe-api -n intellipipe-prod --tail=50
 
 5. **How does multi-tenancy work?**
    Every table, incident, DQ snapshot, and memory record carries `tenant_id`. Redis keys are prefixed. pgvector queries filter by tenant_id before ANN search. JWT tokens carry `tenant_id` claim.
+
+
